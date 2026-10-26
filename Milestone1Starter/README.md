@@ -1,4 +1,14 @@
-# Milestone 1 JavaFX starter
+# Catan local multiplayer
+
+The app now provides a four-player LAN lobby: one laptop hosts and three guests
+join by IP address. See [LAN setup and integration](LAN.md) for networking,
+testing, and the game-controller handoff. The board is a visual preview;
+teammates will implement the game rules.
+
+To test all four players on one laptop, run the Maven goal
+`compile javafx:run -Dapp.mainClass=finalproject.LocalLobbyTestApp`.
+It opens four windows with names and localhost prefilled; host in the first
+and join in the other three. See [the testing checklist](LAN.md#test-on-one-laptop-four-windows).
 
 ## Open and run in IntelliJ IDEA
 1. Unzip/extract the ZIP first (Windows: right-click → Extract All; macOS: double-click). Find the extracted folder directly containing `pom.xml`, `README.md`, `.gitignore`, and `src/`. If there is an extra outer folder, open it to find this project folder.
@@ -7,7 +17,7 @@
 4. Select JDK 21 as the project SDK and Maven runner JRE. IntelliJ bundles Maven; a separate Maven install is unnecessary for this IDE workflow.
 5. Open View → Tool Windows → Maven. If the project is missing, use Add Maven Projects and select `pom.xml`.
 6. In the Maven tool window choose Execute Maven Goal and enter `clean javafx:run`.
-7. Expect a window titled “CSSE220 Team Starter”. Click “Tap to update status”; the message should change to “Your team has launched the shared starter.” Close the window to stop the app.
+7. Expect a window titled “Catan • Local Table”. Enter a name and host a table, or join using the host laptop's IP address. Close the window to stop the app.
 
 Use the Maven goal as the shared launch method. Running StarterApp directly can require extra JavaFX runtime configuration.
 
@@ -23,11 +33,15 @@ Everyone keeps the project outside OneDrive, iCloud Drive, Dropbox, or Google Dr
 Follow the [full GitHub Desktop guide](https://obscrivn.github.io/csse220web/github-desktop-guide.html) for the exact sequence and checkpoints.
 
 ## Files
-- `src/main/java/finalproject/StarterApp.java`: working minimal JavaFX app.
+- `src/main/java/finalproject/StarterApp.java`: Maven entry class.
+- `src/main/java/finalproject/LanLobbyApp.java`: window setup and game-start hook.
+- `src/main/java/finalproject/lobby/`: separate controller, state, board, and UI panels.
+- `src/main/java/finalproject/LocalLobbyTestApp.java`: four-window manual test launcher.
+- `src/main/java/finalproject/network/`: LAN server, client, and message framing.
 - `pom.xml`: Java 21, JavaFX controls, and Maven launch configuration.
 - `.gitignore`: excludes build output, IDE settings, and OS files.
 
-The TODO comments suggest future customization; they do not mean the baseline app is broken. First confirm the unchanged app runs. For the initial Git exercise, create separate documentation files so teammates do not all edit StarterApp.java.
+For team integration, keep Catan rules separate from the lobby transport and connect the game controller through `LanLobbyApp.onGameStarted()`.
 
 ## Troubleshooting
 - “release version 21 not supported”: check both project SDK and Maven runner JRE.
