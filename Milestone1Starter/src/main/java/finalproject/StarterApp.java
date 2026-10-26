@@ -26,8 +26,20 @@ public class StarterApp extends Application {
             statusLabel.setText("Your team has launched the shared starter.");
         });
 
+        // TODO 69: Straight bs.
+        Dice die1 = new Dice();
+        Dice die2 = new Dice();
+        Button diceButton = new Button("Roll the dice");
+        diceButton.setOnAction(event -> {
+            int roll1 = die1.roll();
+            int roll2 = die2.roll();
+            int total = roll1 + roll2;
+            statusLabel.setText("You rolled a " + roll1 + " and a " + roll2 + "!" +
+                    " That is a total of " + total + "!");
+        });
+
         // TODO 3: Arrange the title, message, and control in a clean layout.
-        VBox root = new VBox(12, titleLabel, statusLabel, actionButton);
+        VBox root = new VBox(12, titleLabel, statusLabel, actionButton, diceButton);
         root.setPadding(new Insets(20));
 
         // TODO 4: Set the window title and size.
@@ -37,9 +49,15 @@ public class StarterApp extends Application {
         stage.show();
 
         // TODO 5: Replace this starter view with your real app design.
+
+
+
     }
+
+    Dice die1 = new Dice();
 
     public static void main(String[] args) {
         launch(args);
     }
+
 }
