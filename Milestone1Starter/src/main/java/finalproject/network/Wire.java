@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
-/** Small, length-bounded text protocol. No Java object deserialization. */
 final class Wire {
     private Wire() { }
 

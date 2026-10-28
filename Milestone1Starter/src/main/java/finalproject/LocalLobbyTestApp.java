@@ -9,7 +9,7 @@ import javafx.stage.Stage;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Optional manual test: four independent lobby sessions on one laptop. */
+/** Test to make sure all 4 work together */
 public final class LocalLobbyTestApp extends Application {
     private final List<LobbyController> controllers = new ArrayList<>();
 
@@ -19,7 +19,7 @@ public final class LocalLobbyTestApp extends Application {
             LobbyView view = new LobbyView();
             view.prefill(name, "127.0.0.1", LobbyServer.DEFAULT_PORT);
             LobbyController controller = new LobbyController(view, () -> view.showStatus(
-                    "Everyone is ready. Game handoff reached; gameplay is not implemented yet."));
+                    "Everyone is ready."));
             controllers.add(controller);
             Stage stage = i == 0 ? primaryStage : new Stage();
             stage.setTitle("Local test / " + name);

@@ -1,5 +1,6 @@
 package finalproject.network;
 
+import finalproject.game.*;
 import java.io.*;
 import java.net.*;
 import java.util.*;
@@ -17,6 +18,9 @@ public final class LobbyServer implements AutoCloseable {
     private final Map<Integer, Peer> peers = new TreeMap<>();
     private final String hostToken = UUID.randomUUID().toString();
     private boolean started;
+    private Board board;
+    private TurnManager turns;
+    private long gameRevision;
     private volatile boolean closed;
 
     public LobbyServer(int port) throws IOException {
@@ -91,13 +95,36 @@ public final class LobbyServer implements AutoCloseable {
             snapshot();
         } else if (!started && fields.length == 1 && fields[0].equals("START") && peer.id == 0) {
             if (peers.size() == 4 && peers.values().stream().allMatch(p -> p.ready)) {
+                Random random = new Random();
+                board = BoardGenerator.generate(random);
+                turns = new TurnManager(new ArrayList<>(peers.keySet()), random);
+                gameRevision++;
                 started = true;
                 snapshot();
                 broadcast("STARTED");
+                broadcastGame();
             } else {
                 Wire.send(peer.out, "ERROR", "All four players must join and mark ready first.");
             }
+        } else if (fields[0].equals("END_TURN")) {
+            if (!started || turns == null) {
+                Wire.send(peer.out, "ERROR", "There is no active game.");
+            } else if (peer.id != turns.currentPlayerId()) {
+                Wire.send(peer.out, "ERROR", "It is not your turn.");
+            } else if (fields.length != 2 || !fields[1].equals(Long.toString(gameRevision))) {
+                Wire.send(peer.out, "ERROR", "That turn request is stale. Use the latest game state.");
+            } else {
+                // Prototype: placement validation must be added before advancing setup.
+                turns.advance();
+                gameRevision++;
+                broadcastGame();
+            }
         }
+    }
+
+    private void broadcastGame() {
+        broadcast(GameStateCodec.encode(new GameState(board, turns.order(), turns.currentPlayerId(),
+                turns.phase(), turns.turnNumber(), gameRevision)));
     }
 
     private void snapshot() {
@@ -122,6 +149,8 @@ public final class LobbyServer implements AutoCloseable {
         if (peer.id == 0) { close(); return; }
         // A match cannot continue with a missing player; return everyone to the lobby.
         started = false;
+        board = null;
+        turns = null;
         peers.values().forEach(p -> p.ready = false);
         broadcast("CHAT", "Lobby", peer.name + " disconnected. Waiting for four ready players.");
         snapshot();

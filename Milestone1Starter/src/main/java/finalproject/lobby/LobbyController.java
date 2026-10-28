@@ -1,5 +1,7 @@
 package finalproject.lobby;
 
+import finalproject.game.GameState;
+import finalproject.network.GameStateCodec;
 import finalproject.network.LobbyClient;
 import finalproject.network.LobbyServer;
 import finalproject.network.NetworkAddresses;
@@ -17,6 +19,7 @@ public final class LobbyController implements AutoCloseable {
     private int playerId = -1;
     private boolean ready;
     private String serverError;
+    private GameState latestGame;
 
     public LobbyController(LobbyView view, Runnable gameStarted) {
         this.view = view;
@@ -27,6 +30,9 @@ public final class LobbyController implements AutoCloseable {
         view.onReady(() -> send("READY", Boolean.toString(!ready)));
         view.onStart(() -> send("START"));
         view.onChat(message -> send("CHAT", message));
+        view.onEndTurn(() -> {
+            if (latestGame != null) send("END_TURN", Long.toString(latestGame.revision()));
+        });
     }
 
     private void send(String... fields) {
@@ -100,10 +106,22 @@ public final class LobbyController implements AutoCloseable {
             case "CHAT" -> view.appendChat(fields.get(1), fields.get(2));
             case "STATE" -> {
                 LobbyState state = LobbyState.fromMessage(fields);
+                if (!state.started()) latestGame = null;
                 ready = state.isReady(playerId);
                 view.render(state, playerId);
             }
             case "STARTED" -> gameStarted.run();
+            case "GAME_STATE" -> {
+                try {
+                    GameState state = GameStateCodec.decode(fields);
+                    if (latestGame == null || state.revision() > latestGame.revision()) {
+                        latestGame = state;
+                        view.renderGame(state, playerId);
+                    }
+                } catch (IllegalArgumentException e) {
+                    view.showStatus("The host sent an invalid game snapshot: " + e.getMessage());
+                }
+            }
             default -> { }
         }
     }
@@ -120,6 +138,7 @@ public final class LobbyController implements AutoCloseable {
         server = null;
         playerId = -1;
         ready = false;
+        latestGame = null;
         view.reset();
     }
 }

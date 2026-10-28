@@ -13,6 +13,8 @@ public class LanLobbyApp extends Application {
 
     @Override public void start(Stage stage) {
         view = new LobbyView();
+        stage.setFullScreenExitHint("Press Esc to leave full screen. The game will keep running.");
+        view.onScreenChanged(stage::setFullScreen);
         controller = new LobbyController(view, this::onGameStarted);
         stage.setTitle("Catan • Local Table");
         stage.setMinWidth(1050);
@@ -24,7 +26,7 @@ public class LanLobbyApp extends Application {
 
     /** Teammates can open their game controller here on every laptop. */
     protected void onGameStarted() {
-        view.showStatus("Everyone is ready. Game handoff reached; gameplay is not implemented yet.");
+        view.showStatus("Starting game. Waiting for the host's board and turn order…");
     }
 
     @Override public void stop() {
