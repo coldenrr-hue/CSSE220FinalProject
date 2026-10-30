@@ -1,5 +1,6 @@
 package finalproject;
 
+import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.PauseTransition;
@@ -27,8 +28,12 @@ import javafx.scene.media.MediaView;
 
 
 /**
- * Starter JavaFX app for CSSE220 Milestone 1.
- * Replace this simple window with the first version of your project.
+ - Starter JavaFX app for CSSE220 Milestone 1.
+
+
+ - Replace this simple window with the first version of your project.
+
+
  */
 public class StarterApp extends Application {
 
@@ -79,8 +84,9 @@ public class StarterApp extends Application {
 
             // --- Video & Overlay Reveal Logic ---
             try {
-                String videoPath = getClass().getResource("/DiceCup.mp4") != null
-                        ? getClass().getResource("/DiceCup.mp4").toExternalForm()
+                java.net.URL videoUrl = getClass().getResource("/DiceCup.mp4");
+                String videoPath = videoUrl != null
+                        ? videoUrl.toExternalForm()
                         : new java.io.File("src/main/resources/DiceCup.mp4").toURI().toString();
 
                 Media media = new Media(videoPath);
@@ -105,85 +111,74 @@ public class StarterApp extends Application {
                 // Requirement 4: Trigger the Wipe Reveal after a 4-second delay
                 PauseTransition revealTimer = new PauseTransition(Duration.seconds(4));
                 revealTimer.setOnFinished(e -> {
-                    // Load dice images (using RoseDice prefix as per your file structure)
-                    Image img1 = new Image(getClass().getResourceAsStream("/RoseDice" + roll1 + ".png"));
-                    Image img2 = new Image(getClass().getResourceAsStream("/RoseDice" + roll2 + ".png"));
+                    int[] rolls = {roll1, roll2};
+                    ImageView[] diceViews = new ImageView[2];
+                    Rectangle[] clips = new Rectangle[2];
+                    Timeline[] wipes = new Timeline[2];
 
-                    ImageView diceView1 = new ImageView(img1);
-                    ImageView diceView2 = new ImageView(img2);
+                    double diceSize = 70;
 
-                    double diceSize = 100; // Original requested dice png size maintained
-                    diceView1.setFitWidth(diceSize);
-                    diceView1.setFitHeight(diceSize);
-                    diceView1.setPreserveRatio(true);
+                    for (int i = 0; i < 2; i++) {
+                        Image img = new Image(getClass().getResourceAsStream("/RoseDice" + rolls[i] + ".png"));
+                        diceViews[i] = new ImageView(img);
+                        diceViews[i].setFitWidth(diceSize);
+                        diceViews[i].setFitHeight(diceSize);
+                        diceViews[i].setPreserveRatio(true);
 
-                    diceView2.setFitWidth(diceSize);
-                    diceView2.setFitHeight(diceSize);
-                    diceView2.setPreserveRatio(true);
+                        clips[i] = new Rectangle(diceSize, 0);
+                        clips[i].setY(diceSize);
+                        diceViews[i].setClip(clips[i]);
 
-                    // --- Create PowerPoint-style Bottom-to-Top Wipe Clips ---
-                    Rectangle clip1 = new Rectangle(diceSize, 0);
-                    clip1.setY(diceSize);
-                    diceView1.setClip(clip1);
-
-                    Rectangle clip2 = new Rectangle(diceSize, 0);
-                    clip2.setY(diceSize);
-                    diceView2.setClip(clip2);
-
-                    // Wipe Effect Timeline (0.5 seconds)
-                    Timeline wipe1 = new Timeline(
-                            new KeyFrame(Duration.ZERO,
-                                    new KeyValue(clip1.yProperty(), diceSize),
-                                    new KeyValue(clip1.heightProperty(), 0)),
-                            new KeyFrame(Duration.millis(500),
-                                    new KeyValue(clip1.yProperty(), 0),
-                                    new KeyValue(clip1.heightProperty(), diceSize))
-                    );
-
-                    Timeline wipe2 = new Timeline(
-                            new KeyFrame(Duration.ZERO,
-                                    new KeyValue(clip2.yProperty(), diceSize),
-                                    new KeyValue(clip2.heightProperty(), 0)),
-                            new KeyFrame(Duration.millis(500),
-                                    new KeyValue(clip2.yProperty(), 0),
-                                    new KeyValue(clip2.heightProperty(), diceSize))
-                    );
+                        wipes[i] = new Timeline(
+                                new KeyFrame(Duration.ZERO,
+                                        new KeyValue(clips[i].yProperty(), diceSize),
+                                        new KeyValue(clips[i].heightProperty(), 0)),
+                                new KeyFrame(Duration.millis(500),
+                                        new KeyValue(clips[i].yProperty(), 0),
+                                        new KeyValue(clips[i].heightProperty(), diceSize))
+                        );
+                    }
 
                     // Put dice side-by-side in an HBox
-                    HBox diceBox = new HBox(30, diceView1, diceView2);
+                    HBox diceBox = new HBox(10, diceViews[0], diceViews[1]);
                     diceBox.setAlignment(Pos.CENTER);
 
                     // Requirement 2: Position dice so they appear slightly above the bottom of the animation area
                     StackPane.setAlignment(diceBox, Pos.BOTTOM_CENTER);
-                    diceBox.setTranslateY(51); // Offset upwards from bottom edge
+                    diceBox.setTranslateY(65);
 
                     // Requirement 5: Motion Path (Line effect) to move dice from initial location to the center of window screen
-                    TranslateTransition slideToCenter = new TranslateTransition(Duration.seconds(0.8), diceBox);
+                    TranslateTransition slideToCenter = new TranslateTransition(Duration.seconds(0.5), diceBox);
                     slideToCenter.setToX(0);
-                    slideToCenter.setToY(0); // Moves from current offset back to StackPane center (0,0)
+                    slideToCenter.setToY(0);
 
-                    // Requirement 3: Extended Grow Effect lasting 3 seconds
-                    ScaleTransition grow1 = new ScaleTransition(Duration.seconds(3), diceView1);
-                    grow1.setToX(1.5); // Grow to 150%
-                    grow1.setToY(1.5);
+                    // Scale the entire HBox container to 2.0x so spacing and centering are perfectly preserved
+                    ScaleTransition growBox = new ScaleTransition(Duration.seconds(1.5), diceBox);
+                    growBox.setToX(2.0);
+                    growBox.setToY(2.0);
 
-                    ScaleTransition grow2 = new ScaleTransition(Duration.seconds(3), diceView2);
-                    grow2.setToX(1.5);
-                    grow2.setToY(1.5);
+                    // Pause before fading out (1.5 seconds)
+                    PauseTransition pauseBeforeFade = new PauseTransition(Duration.seconds(1.5));
 
-                    // Sequence chain: Wipe finishes -> Slide to center runs -> Grow effect runs
-                    wipe1.setOnFinished(wEvent -> slideToCenter.play());
-                    slideToCenter.setOnFinished(sEvent -> {
-                        grow1.play();
-                        grow2.play();
-                    });
+                    // Fade Out Effect (PowerPoint-style fade to transparent over 1 second)
+                    FadeTransition fadeOut = new FadeTransition(Duration.seconds(1.0), diceBox);
+                    fadeOut.setFromValue(1.0);
+                    fadeOut.setToValue(0.0);
+                    // Remove from layout entirely once the fade-out completes
+                    fadeOut.setOnFinished(fEvent -> centerCanvas.getChildren().remove(diceBox));
+
+                    // Sequence chain: Wipe finishes -> Slide to center -> Container grow -> Pause -> Fade out
+                    wipes[0].setOnFinished(wEvent -> slideToCenter.play());
+                    slideToCenter.setOnFinished(sEvent -> growBox.play());
+                    growBox.setOnFinished(gEvent -> pauseBeforeFade.play());
+                    pauseBeforeFade.setOnFinished(pEvent -> fadeOut.play());
 
                     // Add dice HBox to the same StackPane canvas (Layer 2 - Overlaid directly on top)
                     centerCanvas.getChildren().add(diceBox);
 
-                    // Play initial wipe animation
-                    wipe1.play();
-                    wipe2.play();
+                    // Play initial wipe animations
+                    wipes[0].play();
+                    wipes[1].play();
                 });
 
                 revealTimer.play();
