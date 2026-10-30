@@ -8,4 +8,7 @@ public class Dice {
     public int roll() {
         return rand.nextInt(1, 7);
     }
+
+
+
 }

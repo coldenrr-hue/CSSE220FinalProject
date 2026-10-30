@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>edu.rose-hulman.csse220</groupId>
-    <artifactId>milestone1-starter</artifactId>
+    <artifactId>milosphere1-starter</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
@@ -17,6 +17,12 @@
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
+            <version>21.0.8</version>
+        </dependency>
+        <!-- Added JavaFX Media Dependency -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-media</artifactId>
             <version>21.0.8</version>
         </dependency>
     </dependencies>
