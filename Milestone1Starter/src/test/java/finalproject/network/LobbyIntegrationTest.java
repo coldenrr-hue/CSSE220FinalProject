@@ -58,17 +58,63 @@ public final class LobbyIntegrationTest {
                 inactive.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("not your turn"));
                 active.client.send("END_TURN", "invalid");
                 active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("stale"));
-                long oldRevision = game.revision();
-                active.client.send("END_TURN", Long.toString(oldRevision));
-                // At the snake reversal, the same player acts twice; stale duplicates must be rejected.
-                if (step == 3) active.client.send("END_TURN", Long.toString(oldRevision));
-                game = sameGame(players);
-                if (game.revision() != oldRevision + 1 || !game.board().equals(originalBoard)) {
-                    throw new AssertionError("State changed unexpectedly during a turn");
+                if (SetupRules.isSetup(game)) {
+                    active.client.send("END_TURN", Long.toString(game.revision()));
+                    active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("road"));
+                    active.client.send("ROLL_DICE", Long.toString(game.revision()));
+                    active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("normal play"));
+                    int vertex = SetupRules.legalSettlements(game, currentId).getFirst();
+                    inactive.client.send("PLACE_SETTLEMENT", Integer.toString(vertex), Long.toString(game.revision()));
+                    inactive.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("not your turn"));
+                    active.client.send("PLACE_ROAD", "0", Long.toString(game.revision()));
+                    active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("touch"));
+                    long before = game.revision();
+                    active.client.send("PLACE_SETTLEMENT", Integer.toString(vertex), Long.toString(before));
+                    game = sameGame(players);
+                    if (game.currentPlayerId() != currentId || game.pieces().pendingSettlement() != vertex
+                            || game.revision() != before + 1 || game.pieces().settlements().size() != step + 1) {
+                        throw new AssertionError("Settlement did not synchronize");
+                    }
+                    active.client.send("PLACE_SETTLEMENT", Integer.toString(vertex), Long.toString(before));
+                    active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("stale"));
+                    active.client.send("PLACE_SETTLEMENT", Integer.toString(vertex), Long.toString(game.revision()));
+                    active.await(f -> f.get(0).equals("ERROR"));
+                    int road = SetupRules.legalRoads(game, currentId).getFirst();
+                    before = game.revision();
+                    active.client.send("PLACE_ROAD", Integer.toString(road), Long.toString(before));
+                    game = sameGame(players);
+                    if (game.revision() != before + 1 || game.pieces().roads().size() != step + 1
+                            || game.pieces().pendingSettlement() != -1) throw new AssertionError("Road did not finish setup turn");
+                    if (step >= 4 && game.pieces().hand(currentId).isEmpty()) {
+                        throw new AssertionError("No resources granted for the second settlement");
+                    }
+                } else {
+                    active.client.send("END_TURN", Long.toString(game.revision()));
+                    active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("Roll the dice"));
+                    inactive.client.send("ROLL_DICE", Long.toString(game.revision()));
+                    inactive.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("not your turn"));
+                    active.client.send("ROLL_DICE", "invalid");
+                    active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("stale"));
+                    long before = game.revision();
+                    active.client.send("ROLL_DICE", Long.toString(before));
+                    game = sameGame(players);
+                    if (!game.dice().rolled() || game.dice().total() < 2 || game.dice().total() > 12
+                            || game.revision() != before + 1) throw new AssertionError("Dice did not synchronize");
+                    active.client.send("ROLL_DICE", Long.toString(before));
+                    active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("stale"));
+                    active.client.send("ROLL_DICE", Long.toString(game.revision()));
+                    active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("already rolled"));
+                    active.client.send("PLACE_SETTLEMENT", "0", Long.toString(game.revision()));
+                    active.await(f -> f.get(0).equals("ERROR"));
+                    before = game.revision();
+                    active.client.send("END_TURN", Long.toString(before));
+                    game = sameGame(players);
+                    if (game.revision() != before + 1 || game.dice().rolled()) throw new AssertionError("Turn did not reset dice");
                 }
-                if (step == 3) active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("stale"));
-                if (step == 7 && (game.phase() != GamePhase.PLAYING || game.turnNumber() != 1)) {
-                    throw new AssertionError("Setup did not enter normal play");
+                if (!game.board().equals(originalBoard)) throw new AssertionError("Board changed during play");
+                if (step == 7 && (game.phase() != GamePhase.PLAYING || game.turnNumber() != 1
+                        || game.pieces().settlements().size() != 8 || game.pieces().roads().size() != 8)) {
+                    throw new AssertionError("Setup did not enter normal play with eight settlements and roads");
                 }
             }
             Probe late = open(opened, server, "Late guest", "");
@@ -91,7 +137,7 @@ public final class LobbyIntegrationTest {
             a.await(f -> f.get(0).equals("DISCONNECTED"));
             b.await(f -> f.get(0).equals("DISCONNECTED"));
             replacement.await(f -> f.get(0).equals("DISCONNECTED"));
-            System.out.println("PASS: lobby, chat, identical four-client boards, turn authorization, stale commands, setup, normal play, disconnect/restart, shutdown");
+            System.out.println("PASS: lobby, chat, identical four-client boards, turn authorization, stale commands, eight settlements/roads, shared dice, normal play, disconnect/restart, shutdown");
         } finally {
             for (Probe p : opened) p.client.close();
         }

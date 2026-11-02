@@ -141,6 +141,7 @@ public class HexBoardView extends StackPane {
         for (int id : vertexIds) {
             BoardGraph.Vertex v = graph.vertex(id);
             Circle spot = new Circle(vertexX(v), vertexY(v), 9, Color.web("#fff3c4", 0.55));
+            spot.setId("settlement-spot-" + id);
             spot.setStroke(Color.web("#f3cc80"));
             spot.setStrokeWidth(2.5);
             spot.setCursor(Cursor.HAND);
@@ -159,6 +160,7 @@ public class HexBoardView extends StackPane {
         for (int id : edgeIds) {
             BoardGraph.Edge e = graph.edge(id);
             Line spot = edgeLine(graph, e, 0.18);
+            spot.setId("road-spot-" + id);
             spot.setStroke(Color.web("#fff3c4", 0.6));
             spot.setStrokeWidth(9);
             spot.setCursor(Cursor.HAND);

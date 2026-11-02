@@ -20,6 +20,12 @@
             <artifactId>javafx-controls</artifactId>
             <version>21.0.8</version>
         </dependency>
+        <!-- Added JavaFX Media Dependency -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-media</artifactId>
+            <version>21.0.8</version>
+        </dependency>
     </dependencies>
 
     <build>
