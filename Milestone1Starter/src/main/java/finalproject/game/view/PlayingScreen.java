@@ -64,6 +64,7 @@ public final class PlayingScreen extends BorderPane {
     private final DiceRollAnimation diceAnimation = new DiceRollAnimation();
     private final Label diceSummary = label("Roll to begin your turn.", 14, GOLD, true);
     private boolean rolled;
+    private boolean diceRevealed;
     private int animatedTurn = -1;
 
     private final VBox playerRows = new VBox(8);
@@ -138,12 +139,22 @@ public final class PlayingScreen extends BorderPane {
         myTurn = state.currentPlayerId() == playerId;
         setup = SetupRules.isSetup(state);
         rolled = state.dice().rolled();
-        diceSummary.setText(rolled ? "Dice: " + state.dice().first() + " + " + state.dice().second()
-                + " = " + state.dice().total() : "Roll to begin your turn.");
         if (rolled && animatedTurn != state.turnNumber()) {
             animatedTurn = state.turnNumber();
-            diceAnimation.play(state.dice());
+            diceRevealed = false;
+            diceSummary.setText("Rolling…");
+            int revealingTurn = state.turnNumber();
+            diceAnimation.play(state.dice(), () -> {
+                if (rolled && animatedTurn == revealingTurn) {
+                    diceRevealed = true;
+                    diceSummary.setText("Dice: " + state.dice().first() + " + " + state.dice().second()
+                            + " = " + state.dice().total());
+                    updateButtons();
+                }
+            });
         } else if (!rolled) {
+            diceRevealed = false;
+            diceSummary.setText("Roll to begin your turn.");
             diceAnimation.clear();
         }
         String current = nameOf(state.currentPlayerId(), names);
@@ -180,6 +191,7 @@ public final class PlayingScreen extends BorderPane {
         myTurn = false;
         setup = false;
         rolled = false;
+        diceRevealed = false;
         animatedTurn = -1;
         diceAnimation.clear();
         diceSummary.setText("Roll to begin your turn.");
@@ -390,7 +402,7 @@ public final class PlayingScreen extends BorderPane {
         buyButton.setDisable(!playing || onBuy == null);
         tradeButton.setDisable(!playing || onTrade == null);
         devCardButton.setDisable(!playing || onDevelopmentCard == null);
-        endTurnButton.setDisable(!playing || !rolled || onEndTurn == null);
+        endTurnButton.setDisable(!playing || !rolled || !diceRevealed || onEndTurn == null);
         for (Button b : List.of(rollButton, buyButton, tradeButton, devCardButton)) {
             b.setTooltip(b.isDisabled() && playing ? new Tooltip("Coming soon") : null);
         }

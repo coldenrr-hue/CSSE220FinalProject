@@ -30,8 +30,11 @@ Allow Java on the host's private network if Windows Firewall prompts you.
    their second settlement.
 5. During normal play, the active player clicks **Roll dice**. The host uses
    George's Dice class to choose both values. Every laptop receives those same
-   values and plays George's cup, wipe-reveal, grow, and fade animation. The
-   result also remains in the Actions panel if video playback is unavailable.
+   values and plays George's cup-shake, lifting reveal, grow, and fade animation. The cup
+   uses frames extracted from his original clip for reliable playback. The
+   dice gradually appear from underneath the cup as it lifts. The Actions panel
+   says **Rolling…** until the dice are fully uncovered, then shows the numbers
+   and total. End turn is disabled until that reveal.
 6. Click **End turn**. Dice reset for the next player. Other players cannot roll
    or end someone else's turn, and a player cannot roll twice in one turn.
 7. Chat still works. Leaving as a guest returns everyone to the lobby; leaving

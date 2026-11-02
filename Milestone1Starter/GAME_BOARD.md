@@ -23,7 +23,9 @@ chat and actions on the right, and your resource cards along the bottom.
 
 - `game/view/PlayingScreen` is Andrew's game layout, placement prompts and actions.
 - `game/view/HexBoardView` draws the island, tokens, pieces, and clickable legal spots.
-- `game/view/DiceRollAnimation` adapts George's cup and dice animation to this view.
+- `game/view/DiceRollAnimation` plays George's cup shake, progressively uncovers
+  the dice as the cup lifts, then updates the Actions result panel. It does not
+  require MP4 playback.
 - `lobby/LobbyView` switches screens while keeping the same connection and chat.
 - `lobby/LobbyArtwork` uses the tile images for the lobby illustration.
 
