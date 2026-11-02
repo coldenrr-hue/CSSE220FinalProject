@@ -20,6 +20,7 @@ public final class LobbyServer implements AutoCloseable {
     private boolean started;
     private Board board;
     private TurnManager turns;
+    private Pieces pieces = Pieces.EMPTY;
     private long gameRevision;
     private volatile boolean closed;
 
@@ -98,6 +99,7 @@ public final class LobbyServer implements AutoCloseable {
                 Random random = new Random();
                 board = BoardGenerator.generate(random);
                 turns = new TurnManager(new ArrayList<>(peers.keySet()), random);
+                pieces = Pieces.EMPTY;
                 gameRevision++;
                 started = true;
                 snapshot();
@@ -113,18 +115,55 @@ public final class LobbyServer implements AutoCloseable {
                 Wire.send(peer.out, "ERROR", "It is not your turn.");
             } else if (fields.length != 2 || !fields[1].equals(Long.toString(gameRevision))) {
                 Wire.send(peer.out, "ERROR", "That turn request is stale. Use the latest game state.");
+            } else if (SetupRules.isSetup(currentGame())) {
+                Wire.send(peer.out, "ERROR", "During setup your turn ends when you place your road.");
             } else {
-                // Prototype: placement validation must be added before advancing setup.
                 turns.advance();
                 gameRevision++;
                 broadcastGame();
             }
+        } else if (fields[0].equals("PLACE_SETTLEMENT") || fields[0].equals("PLACE_ROAD")) {
+            place(peer, fields);
         }
     }
 
+    /** Setup placements: PLACE_SETTLEMENT <vertex> <revision> or PLACE_ROAD <edge> <revision>. */
+    private void place(Peer peer, String[] fields) throws IOException {
+        if (!started || turns == null) {
+            Wire.send(peer.out, "ERROR", "There is no active game.");
+            return;
+        }
+        if (peer.id != turns.currentPlayerId()) {
+            Wire.send(peer.out, "ERROR", "It is not your turn.");
+            return;
+        }
+        if (fields.length != 3 || !fields[2].equals(Long.toString(gameRevision))) {
+            Wire.send(peer.out, "ERROR", "That move is stale. Use the latest game state.");
+            return;
+        }
+        try {
+            int spot = Integer.parseInt(fields[1]);
+            GameState game = currentGame();
+            if (fields[0].equals("PLACE_SETTLEMENT")) {
+                pieces = SetupRules.placeSettlement(game, peer.id, spot).pieces();
+            } else {
+                pieces = SetupRules.placeRoad(game, peer.id, spot).pieces();
+                turns.advance();        // the road finishes this setup turn
+            }
+            gameRevision++;
+            broadcastGame();
+        } catch (IllegalArgumentException e) {   // also covers a bad number
+            Wire.send(peer.out, "ERROR", e.getMessage());
+        }
+    }
+
+    private GameState currentGame() {
+        return new GameState(board, turns.order(), turns.currentPlayerId(),
+                turns.phase(), turns.turnNumber(), gameRevision, pieces);
+    }
+
     private void broadcastGame() {
-        broadcast(GameStateCodec.encode(new GameState(board, turns.order(), turns.currentPlayerId(),
-                turns.phase(), turns.turnNumber(), gameRevision)));
+        broadcast(GameStateCodec.encode(currentGame()));
     }
 
     private void snapshot() {
@@ -151,6 +190,7 @@ public final class LobbyServer implements AutoCloseable {
         started = false;
         board = null;
         turns = null;
+        pieces = Pieces.EMPTY;
         peers.values().forEach(p -> p.ready = false);
         broadcast("CHAT", "Lobby", peer.name + " disconnected. Waiting for four ready players.");
         snapshot();

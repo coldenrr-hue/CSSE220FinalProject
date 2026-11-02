@@ -8,6 +8,7 @@ import javafx.scene.control.Separator;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 import java.util.HashMap;
 import java.util.Map;
 import static finalproject.lobby.LobbyStyles.*;
@@ -74,6 +75,8 @@ public final class LobbyView extends BorderPane {
     public void onStart(Runnable action) { players.startButton.setOnAction(e -> action.run()); }
     public void onChat(Consumer<String> action) { chat.onSend(action); }
     public void onEndTurn(Runnable action) { playingScreen.onEndTurn(action); }
+    public void onPlaceSettlement(IntConsumer action) { playingScreen.onPlaceSettlement(action); }
+    public void onPlaceRoad(IntConsumer action) { playingScreen.onPlaceRoad(action); }
     public void showStatus(String value) { status.setText(value); playingScreen.showStatus(value); }
     public void showAddress(String value) { connection.showAddress(value); }
     public void appendChat(String name, String message) { chat.append(name, message); }

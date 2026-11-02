@@ -33,6 +33,13 @@ public final class LobbyController implements AutoCloseable {
         view.onEndTurn(() -> {
             if (latestGame != null) send("END_TURN", Long.toString(latestGame.revision()));
         });
+        // Setup phase: the host checks these with SetupRules before applying them.
+        view.onPlaceSettlement(vertexId -> {
+            if (latestGame != null) send("PLACE_SETTLEMENT", Integer.toString(vertexId), Long.toString(latestGame.revision()));
+        });
+        view.onPlaceRoad(edgeId -> {
+            if (latestGame != null) send("PLACE_ROAD", Integer.toString(edgeId), Long.toString(latestGame.revision()));
+        });
     }
 
     private void send(String... fields) {
