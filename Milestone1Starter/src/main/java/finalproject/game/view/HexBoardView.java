@@ -3,7 +3,7 @@ package finalproject.game.view;
 import finalproject.game.Board;
 import finalproject.game.BoardGraph;
 import finalproject.game.GameState;
-import finalproject.game.Pieces;
+import finalproject.game.PlayerAssets;
 import finalproject.game.ResourceType;
 import finalproject.game.Tile;
 import javafx.geometry.Pos;
@@ -104,7 +104,7 @@ public class HexBoardView extends StackPane {
         drawPieces();
     }
 
-    /** Show just a board (used by GameBoardView). */
+    /** Show just the terrain, without game pieces. */
     public void render(Board board) {
         if (board != null && board.equals(drawnBoard)) return;
         drawnBoard = board;
@@ -118,11 +118,6 @@ public class HexBoardView extends StackPane {
         redraw();
         pieceLayer.getChildren().clear();
         clearSpots();
-    }
-
-    /** Same as clear(); kept because GameBoardView calls it. */
-    public void showWaiting() {
-        clear();
     }
 
     // ---------- positions (for teammates drawing settlements, roads, harbors) ----------
@@ -233,7 +228,7 @@ public class HexBoardView extends StackPane {
     /** Scalable dock illustrations: wooden piers connect both eligible coastal corners. */
     private void drawHarbors() {
         BoardGraph graph = BoardGraph.of(drawnBoard);
-        for (var harbor : finalproject.game.Harbors.of(drawnBoard)) {
+        for (var harbor : finalproject.game.HarborRules.forBoard(drawnBoard)) {
             var a = graph.vertex(harbor.a()); var b = graph.vertex(harbor.b());
             double mx = (vertexX(a) + vertexX(b)) / 2, my = (vertexY(a) + vertexY(b)) / 2;
             double dx = mx - VIEW_W / 2, dy = my - VIEW_H / 2;
@@ -257,7 +252,7 @@ public class HexBoardView extends StackPane {
             Circle badge = new Circle(x, y, 19, Color.web("#f7ecd0"));
             badge.setStroke(Color.web("#6e4528")); badge.setStrokeWidth(2);
             dock.getChildren().add(badge);
-            String iconName = TradeDialog.name(harbor.resource()).toLowerCase(java.util.Locale.ROOT);
+            String iconName = harbor.resource().cardName().toLowerCase(java.util.Locale.ROOT);
             Image icon = loadOptional("/icons/" + iconName + ".png");
             if (icon != null) {
                 ImageView view = new ImageView(icon); view.setFitWidth(19); view.setFitHeight(19);
@@ -273,7 +268,7 @@ public class HexBoardView extends StackPane {
             dock.getChildren().add(ratio);
             javafx.scene.control.Tooltip.install(dock, new javafx.scene.control.Tooltip(
                     harbor.resource() == ResourceType.DESERT ? "General dock: trade 3 identical resources for 1. Build on either connected corner."
-                    : TradeDialog.name(harbor.resource()) + " dock: trade 2 for 1. Build on either connected corner."));
+                    : harbor.resource().cardName() + " dock: trade 2 for 1. Build on either connected corner."));
             tileLayer.getChildren().add(dock);
         }
     }
@@ -283,7 +278,7 @@ public class HexBoardView extends StackPane {
         pieceLayer.getChildren().clear();
         if (state == null || drawnBoard == null) return;
         BoardGraph graph = BoardGraph.of(drawnBoard);
-        Pieces pieces = state.pieces();
+        PlayerAssets pieces = state.assets();
 
         pieces.roads().forEach((edgeId, player) ->
                 pieceLayer.getChildren().add(roadNode(graph, graph.edge(edgeId), player)));

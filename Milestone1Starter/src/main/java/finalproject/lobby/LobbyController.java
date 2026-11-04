@@ -37,7 +37,7 @@ public final class LobbyController implements AutoCloseable {
         view.onRollDice(() -> {
             if (latestGame != null) send("ROLL_DICE", Long.toString(latestGame.revision()));
         });
-        // Setup phase: the host checks these with SetupRules before applying them.
+        // Setup phase: the host checks these with GameRules before applying them.
         view.onPlaceSettlement(vertexId -> {
             if (latestGame != null) send("PLACE_SETTLEMENT", Integer.toString(vertexId), Long.toString(latestGame.revision()));
         });

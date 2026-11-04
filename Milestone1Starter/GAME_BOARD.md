@@ -1,6 +1,6 @@
 # Shared game board
 
-See [DEMO.md](DEMO.md) for the current integrated setup-and-dice demo and tests.
+See [CODE_GUIDE.md](CODE_GUIDE.md) for the teammate code map and [DEMO.md](DEMO.md) for the current integrated setup-and-dice demo and tests.
 
 The lobby shows decorative tile artwork. Starting a match opens a full-screen
 playing view with the ocean-framed board, a player/score panel on the left,
@@ -10,9 +10,9 @@ chat and actions on the right, and your resource cards along the bottom.
 
 - `game/BoardGenerator` creates one randomized board on the host.
 - `game/BoardGraph` defines shared corner and edge IDs for the 19-tile island.
-- `game/Pieces` stores settlements, roads, a pending setup settlement, and hands.
-- `game/SetupRules` enforces setup placement order, settlement distance, adjoining
-  roads, and resources from the second settlement.
+- `game/PlayerAssets` stores settlements, roads, a pending setup settlement, and hands.
+- `game/GameRules` handles setup placement, paid building, trading and resource production.
+- `game/HarborRules` shares dock locations and trade discounts between the host and UI.
 - `game/TurnManager` drives the forward/reverse setup order and normal turns.
 - `Dice` is George's die generator; only the host rolls it for a shared game.
 - `game/DiceResult` and `game/GameState` carry the current turn's dice and board.
@@ -21,7 +21,7 @@ chat and actions on the right, and your resource cards along the bottom.
 
 ## Views and assets
 
-- `game/view/PlayingScreen` is Andrew's game layout, placement prompts and actions.
+- `game/view/GameScreen` is Andrew's game layout, placement prompts and actions.
 - `game/view/HexBoardView` draws the island, tokens, pieces, and clickable legal spots.
 - `game/view/DiceRollAnimation` plays George's cup shake, progressively uncovers
   the dice as the cup lifts, then updates the Actions result panel. It does not

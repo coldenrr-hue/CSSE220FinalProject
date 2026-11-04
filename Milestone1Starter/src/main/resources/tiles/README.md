@@ -12,7 +12,7 @@ Add your own PNG images with exactly these filenames:
 Restart the app after adding or replacing images. Maven copies this resources
 folder onto the runtime classpath during `compile javafx:run`.
 
-`game/ResourceType.java` owns these classpath paths. `game/view/HexTileView.java`
+`game/ResourceType.java` owns these classpath paths. `game/view/HexBoardView.java`
 loads and clips each image to its hexagon. Missing or unreadable images fall
 back to a neutral blank tile. Resource labels and number tokens stay over the
 artwork so the synchronized tile data is visible even before final images exist.

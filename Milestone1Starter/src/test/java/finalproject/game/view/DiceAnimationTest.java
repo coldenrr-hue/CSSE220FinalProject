@@ -18,7 +18,7 @@ import java.util.Random;
 
 /** Real-time JavaFX regression check: shake, reveal timing, repeat snapshots and cancellation. */
 public final class DiceAnimationTest extends Application {
-    private final PlayingScreen screen = new PlayingScreen();
+    private final GameScreen screen = new GameScreen();
     private final Board board = BoardGenerator.generate(new Random(22));
     private final Map<Integer, String> names = Map.of(0,"Host",1,"Guest A",2,"Guest B",3,"Guest C");
     private long start, secondStart, cancelStart;
@@ -107,7 +107,7 @@ public final class DiceAnimationTest extends Application {
     }
 
     private GameState game(int turn, long revision, DiceResult dice) {
-        return new GameState(board,List.of(0,1,2,3),0,GamePhase.PLAYING,turn,revision,Pieces.EMPTY,dice);
+        return new GameState(board,List.of(0,1,2,3),0,GamePhase.PLAYING,turn,revision,PlayerAssets.EMPTY,dice);
     }
     private String summary() { return ((Label)screen.lookup("#dice-summary")).getText(); }
     private Button endTurn() {

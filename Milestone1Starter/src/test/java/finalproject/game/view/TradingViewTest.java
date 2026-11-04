@@ -13,13 +13,13 @@ import java.util.*;
 public final class TradingViewTest extends Application {
     @Override public void start(Stage stage) {
         try {
-            PlayingScreen screen = new PlayingScreen();
+            GameScreen screen = new GameScreen();
             List<String[]> sent = new ArrayList<>();
             screen.onCommand(sent::add);
             Board board = BoardGenerator.generate(new Random(42));
-            Pieces pieces = Pieces.EMPTY.withCards(0, List.of(ResourceType.FOREST, ResourceType.FOREST))
+            PlayerAssets pieces = PlayerAssets.EMPTY.withCards(0, List.of(ResourceType.FOREST, ResourceType.FOREST))
                     .withCards(1, List.of(ResourceType.HILLS));
-            var docks = Harbors.of(board);
+            var docks = HarborRules.forBoard(board);
             pieces = pieces.withSettlement(docks.get(0).a(), 0).withSettlement(docks.get(3).b(), 1);
             GameState state = new GameState(board, List.of(0,1,2,3), 0, GamePhase.PLAYING, 1, 20, pieces,
                     new DiceResult(3,4), new TradeOffer(0,1,List.of(ResourceType.FOREST),List.of(ResourceType.HILLS)));

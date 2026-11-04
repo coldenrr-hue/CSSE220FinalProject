@@ -21,7 +21,7 @@ public final class LobbyServer implements AutoCloseable {
     private boolean started;
     private Board board;
     private TurnManager turns;
-    private Pieces pieces = Pieces.EMPTY;
+    private PlayerAssets assets = PlayerAssets.EMPTY;
     private final Dice die = new Dice();
     private DiceResult dice = DiceResult.NONE;
     private TradeOffer offer;
@@ -106,7 +106,7 @@ public final class LobbyServer implements AutoCloseable {
                 Random random = new Random();
                 board = BoardGenerator.generate(random);
                 turns = new TurnManager(new ArrayList<>(peers.keySet()), random);
-                pieces = Pieces.EMPTY;
+                assets = PlayerAssets.EMPTY;
                 dice = DiceResult.NONE;
                 gameRevision++;
                 started = true;
@@ -123,7 +123,7 @@ public final class LobbyServer implements AutoCloseable {
                 Wire.send(peer.out, "ERROR", "It is not your turn.");
             } else if (fields.length != 2 || !fields[1].equals(Long.toString(gameRevision))) {
                 Wire.send(peer.out, "ERROR", "That turn request is stale. Use the latest game state.");
-            } else if (SetupRules.isSetup(currentGame())) {
+            } else if (GameRules.isSetup(currentGame())) {
                 Wire.send(peer.out, "ERROR", "During setup your turn ends when you place your road.");
             } else if (!dice.rolled()) {
                 Wire.send(peer.out, "ERROR", "Roll the dice before ending your turn.");
@@ -137,7 +137,7 @@ public final class LobbyServer implements AutoCloseable {
         } else if (fields[0].equals("PLACE_SETTLEMENT") || fields[0].equals("PLACE_ROAD")) {
             place(peer, fields);
         } else if (fields[0].equals("ROLL_DICE")) {
-            if (!started || turns == null || SetupRules.isSetup(currentGame())) {
+            if (!started || turns == null || GameRules.isSetup(currentGame())) {
                 Wire.send(peer.out, "ERROR", "Dice can only be rolled during normal play.");
             } else if (peer.id != turns.currentPlayerId()) {
                 Wire.send(peer.out, "ERROR", "It is not your turn.");
@@ -147,7 +147,7 @@ public final class LobbyServer implements AutoCloseable {
                 Wire.send(peer.out, "ERROR", "You have already rolled this turn.");
             } else {
                 dice = new DiceResult(die.roll(), die.roll());
-                pieces = PlayRules.produce(currentGame());
+                assets = GameRules.collectDiceResources(currentGame());
                 gameRevision++;
                 broadcastGame();
             }
@@ -171,13 +171,13 @@ public final class LobbyServer implements AutoCloseable {
         try {
             int spot = Integer.parseInt(fields[1]);
             GameState game = currentGame();
-            if (!SetupRules.isSetup(game)) {
-                pieces = PlayRules.build(game, peer.id, fields[0].equals("PLACE_SETTLEMENT") ? PlayRules.Build.SETTLEMENT : PlayRules.Build.ROAD, spot);
+            if (!GameRules.isSetup(game)) {
+                assets = GameRules.build(game, peer.id, fields[0].equals("PLACE_SETTLEMENT") ? GameRules.Build.SETTLEMENT : GameRules.Build.ROAD, spot);
                 offer = null;
             } else if (fields[0].equals("PLACE_SETTLEMENT")) {
-                pieces = SetupRules.placeSettlement(game, peer.id, spot).pieces();
+                assets = GameRules.placeSetupSettlement(game, peer.id, spot).assets();
             } else {
-                pieces = SetupRules.placeRoad(game, peer.id, spot).pieces();
+                assets = GameRules.placeSetupRoad(game, peer.id, spot).assets();
                 turns.advance();        // the road finishes this setup turn
             }
             gameRevision++;
@@ -196,23 +196,23 @@ public final class LobbyServer implements AutoCloseable {
             switch (f[0]) {
                 case "BANK_TRADE" -> {
                     if (f.length != 5) throw new IllegalArgumentException("Invalid bank trade.");
-                    pieces = PlayRules.bankTrade(game, peer.id, ResourceType.valueOf(f[1]), ResourceType.valueOf(f[2]), Integer.parseInt(f[3]));
+                    assets = GameRules.bankTrade(game, peer.id, ResourceType.valueOf(f[1]), ResourceType.valueOf(f[2]), Integer.parseInt(f[3]));
                     offer = null;
                 }
                 case "BUILD" -> {
                     if (f.length != 4) throw new IllegalArgumentException("Invalid build.");
-                    pieces = PlayRules.build(game, peer.id, PlayRules.Build.valueOf(f[1]), Integer.parseInt(f[2]));
+                    assets = GameRules.build(game, peer.id, GameRules.Build.valueOf(f[1]), Integer.parseInt(f[2]));
                     offer = null;
                 }
                 case "TRADE_OFFER" -> {
                     if (f.length != 5) throw new IllegalArgumentException("Invalid offer.");
                     TradeOffer next = new TradeOffer(peer.id, Integer.parseInt(f[1]), GameStateCodec.decodeCards(f[2]), GameStateCodec.decodeCards(f[3]));
-                    PlayRules.validateOffer(game, next);
+                    GameRules.validateOffer(game, next);
                     offer = next;
                 }
                 case "TRADE_ACCEPT" -> {
                     if (f.length != 2) throw new IllegalArgumentException("Invalid acceptance.");
-                    pieces = PlayRules.accept(game, peer.id);
+                    assets = GameRules.acceptTrade(game, peer.id);
                     offer = null;
                 }
                 case "TRADE_DECLINE", "TRADE_CANCEL" -> {
@@ -231,7 +231,7 @@ public final class LobbyServer implements AutoCloseable {
 
     private GameState currentGame() {
         return new GameState(board, turns.order(), turns.currentPlayerId(),
-                turns.phase(), turns.turnNumber(), gameRevision, pieces, dice, offer);
+                turns.phase(), turns.turnNumber(), gameRevision, assets, dice, offer);
     }
 
     private void broadcastGame() {
@@ -262,7 +262,7 @@ public final class LobbyServer implements AutoCloseable {
         started = false;
         board = null;
         turns = null;
-        pieces = Pieces.EMPTY;
+        assets = PlayerAssets.EMPTY;
         offer = null;
         dice = DiceResult.NONE;
         peers.values().forEach(p -> p.ready = false);

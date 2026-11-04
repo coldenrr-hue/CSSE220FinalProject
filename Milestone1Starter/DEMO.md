@@ -73,7 +73,7 @@ rolls, and verifies disconnect/restart behavior.
 - Both original branch histories are retained as merges into Colden.
 - StarterApp still launches the LAN app; George's separate starter screen was
   adapted into `game/view/DiceRollAnimation` rather than replacing the game.
-- Andrew's GameState/Pieces and placement commands remain authoritative on the host.
+- Andrew's GameState/PlayerAssets and placement commands remain authoritative on the host.
 - `GAME_STATE` protocol version 3 includes pieces, hands, and current-turn dice.
 - Maven adds `javafx-media`, retaining the original artifact name and both launchers.
 - Andrew's per-user `.idea/workspace.xml` is excluded from the integration.

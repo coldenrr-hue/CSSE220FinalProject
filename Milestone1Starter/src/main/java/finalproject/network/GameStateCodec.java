@@ -24,14 +24,14 @@ public final class GameStateCodec {
             fields.addAll(List.of(Integer.toString(tile.id()), Integer.toString(tile.q()), Integer.toString(tile.r()),
                     tile.resource().name(), Integer.toString(tile.number())));
         }
-        Pieces pieces = state.pieces();
-        fields.add(encodeOwners(pieces.settlements()));
-        fields.add(encodeOwners(pieces.roads()));
-        fields.add(Integer.toString(pieces.pendingSettlement()));
-        fields.add(encodeHands(pieces.hands()));
+        PlayerAssets assets = state.assets();
+        fields.add(encodeOwners(assets.settlements()));
+        fields.add(encodeOwners(assets.roads()));
+        fields.add(Integer.toString(assets.pendingSettlement()));
+        fields.add(encodeHands(assets.hands()));
         fields.add(Integer.toString(state.dice().first()));
         fields.add(Integer.toString(state.dice().second()));
-        fields.add(pieces.cities().stream().sorted().map(String::valueOf).collect(java.util.stream.Collectors.joining(",")));
+        fields.add(assets.cities().stream().sorted().map(String::valueOf).collect(java.util.stream.Collectors.joining(",")));
         TradeOffer offer = state.offer();
         fields.add(offer == null ? "" : offer.from() + ";" + offer.to() + ";" + encodeCards(offer.give()) + ";" + encodeCards(offer.receive()));
         return fields.toArray(String[]::new);
@@ -47,7 +47,7 @@ public final class GameStateCodec {
             tiles.add(new Tile(Integer.parseInt(fields.get(i)), Integer.parseInt(fields.get(i + 1)),
                     Integer.parseInt(fields.get(i + 2)), ResourceType.valueOf(fields.get(i + 3)), Integer.parseInt(fields.get(i + 4))));
         }
-        Pieces pieces = new Pieces(decodeOwners(fields.get(106)), decodeOwners(fields.get(107)),
+        PlayerAssets assets = new PlayerAssets(decodeOwners(fields.get(106)), decodeOwners(fields.get(107)),
                 Integer.parseInt(fields.get(108)), decodeHands(fields.get(109)), fields.get(112).isEmpty() ? java.util.Set.of() :
                         java.util.Arrays.stream(fields.get(112).split(",")).map(Integer::parseInt).collect(java.util.stream.Collectors.toSet()));
         TradeOffer offer = null;
@@ -56,7 +56,7 @@ public final class GameStateCodec {
             offer = new TradeOffer(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), decodeCards(parts[2]), decodeCards(parts[3]));
         }
         return new GameState(new Board(tiles), order, Integer.parseInt(fields.get(4)),
-                GamePhase.valueOf(fields.get(3)), Integer.parseInt(fields.get(5)), Long.parseLong(fields.get(2)), pieces,
+                GamePhase.valueOf(fields.get(3)), Integer.parseInt(fields.get(5)), Long.parseLong(fields.get(2)), assets,
                 new DiceResult(Integer.parseInt(fields.get(110)), Integer.parseInt(fields.get(111))), offer);
     }
 

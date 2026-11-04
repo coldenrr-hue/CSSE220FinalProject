@@ -2,9 +2,9 @@ package finalproject.game.view;
 
 import finalproject.game.GamePhase;
 import finalproject.game.GameState;
-import finalproject.game.Pieces;
+import finalproject.game.PlayerAssets;
 import finalproject.game.ResourceType;
-import finalproject.game.SetupRules;
+import finalproject.game.GameRules;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -39,7 +39,7 @@ import java.util.function.IntConsumer;
  * During setup the banner says SETUP PHASE, the tracker shows the snake order
  * (A B C D D C B A), and on your turn the legal corners / edges glow on the board.
  */
-public final class PlayingScreen extends BorderPane {
+public final class GameScreen extends BorderPane {
 
     private static final String[] SEAT_COLORS = HexBoardView.SEAT_COLORS;
 
@@ -82,12 +82,12 @@ public final class PlayingScreen extends BorderPane {
     private final Label actionsNote = label("", 12, TEXT, false);
     private final Button rollButton = button("Roll dice", GOLD_BUTTON);
     private final Button cancelBuild = button("Cancel placement", DARK_BUTTON);
-    private final Button buyButton = button("Build", GOLD_BUTTON);
+    private final Button buildButton = button("Build", GOLD_BUTTON);
     private final Button tradeButton = button("Trade", GOLD_BUTTON);
     private final Button devCardButton = button("Development card", GOLD_BUTTON);
     private final Button endTurnButton = button("End turn", GOLD_BUTTON);
 
-    private Runnable onRoll, onBuy, onTrade, onDevelopmentCard, onEndTurn;
+    private Runnable onRoll, onBuild, onTrade, onDevelopmentCard, onEndTurn;
     private IntConsumer onPlaceSettlement, onPlaceRoad;
     private boolean myTurn;
     private boolean setup;
@@ -99,7 +99,7 @@ public final class PlayingScreen extends BorderPane {
 
     public void onCommand(java.util.function.Consumer<String[]> action) {
         command = action;
-        onBuy(this::chooseBuild);
+        onBuild(this::chooseBuild);
         onTrade(() -> TradeDialog.show(latestState, localPlayer, playerNames, command));
     }
 
@@ -111,8 +111,8 @@ public final class PlayingScreen extends BorderPane {
                 showStatus("The board changed. Open Build again to choose a piece.");
                 return;
             }
-            var spots = finalproject.game.PlayRules.legalBuilds(snapshot, localPlayer, kind);
-            boolean city = kind == finalproject.game.PlayRules.Build.CITY;
+            var spots = GameRules.legalBuilds(snapshot, localPlayer, kind);
+            boolean city = kind == GameRules.Build.CITY;
             instruction.setText(city ? "Click one of your ringed settlements to upgrade it for 3 ore + 2 grain."
                     : "Click a glowing location to build your " + kind.name().toLowerCase(java.util.Locale.ROOT) + ".");
             cancelBuild.setVisible(true); cancelBuild.setManaged(true);
@@ -121,7 +121,7 @@ public final class PlayingScreen extends BorderPane {
                 cancelBuild.setVisible(false); cancelBuild.setManaged(false);
                 command.accept(new String[]{"BUILD", kind.name(), "" + spot, "" + snapshot.revision()});
             };
-            if (kind == finalproject.game.PlayRules.Build.ROAD) board.showRoadSpots(spots, place);
+            if (kind == GameRules.Build.ROAD) board.showRoadSpots(spots, place);
             else if (city) board.showCitySpots(spots, place);
             else board.showSettlementSpots(spots, place);
         });
@@ -131,13 +131,13 @@ public final class PlayingScreen extends BorderPane {
         tradeOfferPanel.getChildren().clear();
         var offer = state.offer();
         if (offer == null) return;
-        Label text = label(nameOf(offer.from(), playerNames) + " offers " + TradeDialog.cards(offer.give())
-                + " for " + TradeDialog.cards(offer.receive()) + " from " + nameOf(offer.to(), playerNames), 13, TEXT, false);
+        Label text = label(nameOf(offer.from(), playerNames) + " offers " + ResourceType.describeCards(offer.give())
+                + " for " + ResourceType.describeCards(offer.receive()) + " from " + nameOf(offer.to(), playerNames), 13, TEXT, false);
         tradeOfferPanel.getChildren().add(text);
         if (command == null) return;
         if (localPlayer == offer.to()) {
             Button accept = button("Accept", GOLD_BUTTON), decline = button("Decline", DARK_BUTTON);
-            accept.setDisable(!finalproject.game.PlayRules.owns(state.pieces(), localPlayer, offer.receive()));
+            accept.setDisable(!GameRules.hasResources(state.assets(), localPlayer, offer.receive()));
             if (accept.isDisabled()) tradeOfferPanel.getChildren().add(label("You do not have the requested cards.", 12, GOLD, false));
             accept.setOnAction(e -> command.accept(new String[]{"TRADE_ACCEPT", "" + state.revision()}));
             decline.setOnAction(e -> command.accept(new String[]{"TRADE_DECLINE", "" + state.revision()}));
@@ -149,7 +149,7 @@ public final class PlayingScreen extends BorderPane {
         }
     }
 
-    public PlayingScreen() {
+    public GameScreen() {
         diceSummary.setId("dice-summary");
         setStyle("-fx-background-color: " + BG + ";");
         setPadding(new Insets(18));
@@ -165,7 +165,7 @@ public final class PlayingScreen extends BorderPane {
             cancelBuild.setVisible(false); cancelBuild.setManaged(false);
         });
         rollButton.setOnAction(e -> run(onRoll));
-        buyButton.setOnAction(e -> run(onBuy));
+        buildButton.setOnAction(e -> run(onBuild));
         tradeButton.setOnAction(e -> run(onTrade));
         devCardButton.setOnAction(e -> run(onDevelopmentCard));
         endTurnButton.setOnAction(e -> run(onEndTurn));
@@ -203,7 +203,7 @@ public final class PlayingScreen extends BorderPane {
         renderOffer(state);
         board.render(state);
         myTurn = state.currentPlayerId() == playerId;
-        setup = SetupRules.isSetup(state);
+        setup = GameRules.isSetup(state);
         rolled = state.dice().rolled();
         if (rolled && animatedTurn != state.turnNumber()) {
             animatedTurn = state.turnNumber();
@@ -248,7 +248,7 @@ public final class PlayingScreen extends BorderPane {
 
 
         renderPlayers(state, playerId, names);
-        setHand(state.pieces(), playerId);
+        setHand(state.assets(), playerId);
         updateButtons();
     }
 
@@ -274,13 +274,13 @@ public final class PlayingScreen extends BorderPane {
         actionsNote.setText("");
         actionsPanel.setVisible(false);
         actionsPanel.setManaged(false);
-        setHand(Pieces.EMPTY, -1);
+        setHand(PlayerAssets.EMPTY, -1);
         updateButtons();
     }
 
     // Hooks for later features
     public void onRollDice(Runnable action)   { onRoll = action; updateButtons(); }
-    public void onBuy(Runnable action)        { onBuy = action; updateButtons(); }
+    public void onBuild(Runnable action)        { onBuild = action; updateButtons(); }
     public void onTrade(Runnable action)      { onTrade = action; updateButtons(); }
     public void onDevelopmentCard(Runnable action) { onDevelopmentCard = action; updateButtons(); }
 
@@ -289,7 +289,7 @@ public final class PlayingScreen extends BorderPane {
     // =====================================================================
 
     private String setupInstruction(GameState state, String current, int round) {
-        boolean road = SetupRules.needsRoad(state);
+        boolean road = GameRules.needsRoad(state);
         if (!myTurn) {
             return "Waiting for " + current + " to place a " + (road ? "road." : "settlement.");
         }
@@ -302,13 +302,13 @@ public final class PlayingScreen extends BorderPane {
     private void showPlacementSpots(GameState state, int playerId) {
         if (!myTurn) {
             board.clearSpots();
-        } else if (SetupRules.needsSettlement(state)) {
+        } else if (GameRules.needsSettlement(state)) {
             // The host rejects repeated clicks because they carry an old revision number.
-            board.showSettlementSpots(SetupRules.legalSettlements(state, playerId), vertexId -> {
+            board.showSettlementSpots(GameRules.legalSetupSettlements(state, playerId), vertexId -> {
                 if (onPlaceSettlement != null) onPlaceSettlement.accept(vertexId);
             });
         } else {
-            board.showRoadSpots(SetupRules.legalRoads(state, playerId), edgeId -> {
+            board.showRoadSpots(GameRules.legalSetupRoads(state, playerId), edgeId -> {
                 if (onPlaceRoad != null) onPlaceRoad.accept(edgeId);
             });
         }
@@ -370,10 +370,10 @@ public final class PlayingScreen extends BorderPane {
         VBox.setVgrow(chatHolder, Priority.ALWAYS);
 
         VBox actions = new VBox(8, label("ACTIONS", 13, TEXT, true), actionsNote, diceSummary,
-                rollButton, buyButton, tradeButton, tradeOfferPanel, devCardButton, endTurnButton);
+                rollButton, buildButton, tradeButton, tradeOfferPanel, devCardButton, endTurnButton);
         actions.setStyle(PANEL_STYLE);
         actionsPanel = actions;
-        for (Button b : List.of(rollButton, buyButton, tradeButton, devCardButton, endTurnButton)) {
+        for (Button b : List.of(rollButton, buildButton, tradeButton, devCardButton, endTurnButton)) {
             b.setMaxWidth(Double.MAX_VALUE);
             b.setPrefHeight(36);
         }
@@ -443,9 +443,9 @@ public final class PlayingScreen extends BorderPane {
             HBox top = new HBox(8, chip, name);
             top.setAlignment(Pos.CENTER_LEFT);
 
-            Pieces pieces = state.pieces();
+            PlayerAssets pieces = state.assets();
             int vp = pieces.victoryPoints(id);
-            Label detail = label(vp + " VP   ·   " + (pieces.settlementCount(id) - pieces.cityCount(id)) + " settlements   ·   "
+            Label detail = label(vp + " VP   ·   " + pieces.settlementCount(id) + " settlements   ·   "
                     + pieces.roadCount(id) + " roads   /   " + pieces.cityCount(id) + " cities", 12, TEXT, false);
 
             VBox row = new VBox(3, top, detail);
@@ -456,7 +456,7 @@ public final class PlayingScreen extends BorderPane {
         }
     }
 
-    private void setHand(Pieces pieces, int playerId) {
+    private void setHand(PlayerAssets pieces, int playerId) {
         List<ResourceType> hand = pieces.hand(playerId);
         for (int i = 0; i < CARD_NAMES.length; i++) {
             ResourceType source = CARD_SOURCES[i];
@@ -468,11 +468,11 @@ public final class PlayingScreen extends BorderPane {
     private void updateButtons() {
         boolean playing = myTurn && !setup;
         rollButton.setDisable(!playing || rolled || onRoll == null);
-        buyButton.setDisable(!playing || !rolled || !diceRevealed || onBuy == null);
+        buildButton.setDisable(!playing || !rolled || !diceRevealed || onBuild == null);
         tradeButton.setDisable(!playing || !rolled || !diceRevealed || onTrade == null);
         devCardButton.setDisable(!playing || onDevelopmentCard == null);
         endTurnButton.setDisable(!playing || !rolled || !diceRevealed || onEndTurn == null);
-        for (Button b : List.of(rollButton, buyButton, tradeButton, devCardButton)) {
+        for (Button b : List.of(rollButton, buildButton, tradeButton, devCardButton)) {
             b.setTooltip(b.isDisabled() && playing ? new Tooltip(b == devCardButton ? "Coming soon" : "Roll the dice first") : null);
         }
     }

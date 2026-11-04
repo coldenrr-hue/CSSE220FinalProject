@@ -58,12 +58,12 @@ public final class LobbyIntegrationTest {
                 inactive.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("not your turn"));
                 active.client.send("END_TURN", "invalid");
                 active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("stale"));
-                if (SetupRules.isSetup(game)) {
+                if (GameRules.isSetup(game)) {
                     active.client.send("END_TURN", Long.toString(game.revision()));
                     active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("road"));
                     active.client.send("ROLL_DICE", Long.toString(game.revision()));
                     active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("normal play"));
-                    int vertex = SetupRules.legalSettlements(game, currentId).getFirst();
+                    int vertex = GameRules.legalSetupSettlements(game, currentId).getFirst();
                     inactive.client.send("PLACE_SETTLEMENT", Integer.toString(vertex), Long.toString(game.revision()));
                     inactive.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("not your turn"));
                     active.client.send("PLACE_ROAD", "0", Long.toString(game.revision()));
@@ -71,21 +71,21 @@ public final class LobbyIntegrationTest {
                     long before = game.revision();
                     active.client.send("PLACE_SETTLEMENT", Integer.toString(vertex), Long.toString(before));
                     game = sameGame(players);
-                    if (game.currentPlayerId() != currentId || game.pieces().pendingSettlement() != vertex
-                            || game.revision() != before + 1 || game.pieces().settlements().size() != step + 1) {
+                    if (game.currentPlayerId() != currentId || game.assets().pendingSettlement() != vertex
+                            || game.revision() != before + 1 || game.assets().settlements().size() != step + 1) {
                         throw new AssertionError("Settlement did not synchronize");
                     }
                     active.client.send("PLACE_SETTLEMENT", Integer.toString(vertex), Long.toString(before));
                     active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("stale"));
                     active.client.send("PLACE_SETTLEMENT", Integer.toString(vertex), Long.toString(game.revision()));
                     active.await(f -> f.get(0).equals("ERROR"));
-                    int road = SetupRules.legalRoads(game, currentId).getFirst();
+                    int road = GameRules.legalSetupRoads(game, currentId).getFirst();
                     before = game.revision();
                     active.client.send("PLACE_ROAD", Integer.toString(road), Long.toString(before));
                     game = sameGame(players);
-                    if (game.revision() != before + 1 || game.pieces().roads().size() != step + 1
-                            || game.pieces().pendingSettlement() != -1) throw new AssertionError("Road did not finish setup turn");
-                    if (step >= 4 && game.pieces().hand(currentId).isEmpty()) {
+                    if (game.revision() != before + 1 || game.assets().roads().size() != step + 1
+                            || game.assets().pendingSettlement() != -1) throw new AssertionError("Road did not finish setup turn");
+                    if (step >= 4 && game.assets().hand(currentId).isEmpty()) {
                         throw new AssertionError("No resources granted for the second settlement");
                     }
                 } else {
@@ -106,8 +106,8 @@ public final class LobbyIntegrationTest {
                     active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("already rolled"));
                     active.client.send("PLACE_SETTLEMENT", "0", Long.toString(game.revision()));
                     active.await(f -> f.get(0).equals("ERROR"));
-                    if (!game.pieces().hand(currentId).isEmpty()) {
-                        ResourceType give = game.pieces().hand(currentId).getFirst();
+                    if (!game.assets().hand(currentId).isEmpty()) {
+                        ResourceType give = game.assets().hand(currentId).getFirst();
                         ResourceType receive = Arrays.stream(ResourceType.values()).filter(r -> r != give && r != ResourceType.DESERT).findFirst().orElseThrow();
                         Probe recipient = inactive;
                         active.client.send("TRADE_OFFER", "" + recipient.id, give.name(), receive.name(), "" + game.revision());
@@ -117,11 +117,11 @@ public final class LobbyIntegrationTest {
                         active.await(f -> f.get(0).equals("ERROR"));
                         recipient.client.send("TRADE_ACCEPT", "0");
                         recipient.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("stale"));
-                        if (game.pieces().hand(recipient.id).contains(receive)) {
-                            Pieces expected = PlayRules.accept(game, recipient.id);
+                        if (game.assets().hand(recipient.id).contains(receive)) {
+                            PlayerAssets expected = GameRules.acceptTrade(game, recipient.id);
                             recipient.client.send("TRADE_ACCEPT", "" + game.revision());
                             game = sameGame(players);
-                            if (!game.pieces().equals(expected) || game.offer() != null) throw new AssertionError("Trade did not synchronize");
+                            if (!game.assets().equals(expected) || game.offer() != null) throw new AssertionError("Trade did not synchronize");
                             recipient.client.send("TRADE_ACCEPT", "" + game.revision());
                             recipient.await(f -> f.get(0).equals("ERROR"));
                         } else {
@@ -139,7 +139,7 @@ public final class LobbyIntegrationTest {
                 }
                 if (!game.board().equals(originalBoard)) throw new AssertionError("Board changed during play");
                 if (step == 7 && (game.phase() != GamePhase.PLAYING || game.turnNumber() != 1
-                        || game.pieces().settlements().size() != 8 || game.pieces().roads().size() != 8)) {
+                        || game.assets().settlements().size() != 8 || game.assets().roads().size() != 8)) {
                     throw new AssertionError("Setup did not enter normal play with eight settlements and roads");
                 }
             }

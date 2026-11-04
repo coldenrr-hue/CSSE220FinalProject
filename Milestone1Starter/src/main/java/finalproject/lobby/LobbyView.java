@@ -1,7 +1,7 @@
 package finalproject.lobby;
 
 import finalproject.game.GameState;
-import finalproject.game.view.PlayingScreen;
+import finalproject.game.view.GameScreen;
 import javafx.geometry.Insets;
 import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
@@ -21,7 +21,7 @@ public final class LobbyView extends BorderPane {
     private final Label status = text("Create a table or join a friend on the same network.");
     private final BorderPane lobbyScreen = new BorderPane();
     private final VBox lobbySidebar = new VBox(12);
-    private final PlayingScreen playingScreen = new PlayingScreen();
+    private final GameScreen gameScreen = new GameScreen();
     private final Map<Integer, String> playerNames = new HashMap<>();
     private Consumer<Boolean> screenChanged = playing -> { };
     private boolean playing;
@@ -44,7 +44,7 @@ public final class LobbyView extends BorderPane {
         lobbyScreen.setRight(lobbySidebar);
         BorderPane.setMargin(status, new Insets(18, 0, 0, 0));
         lobbyScreen.setBottom(status);
-        playingScreen.onFullscreen(() -> {
+        gameScreen.onFullscreen(() -> {
             if (getScene() != null && getScene().getWindow() instanceof Stage stage) {
                 stage.setFullScreen(!stage.isFullScreen());
             }
@@ -57,7 +57,7 @@ public final class LobbyView extends BorderPane {
     public String hostAddress() { return connection.hostField.getText().strip(); }
     public String portText() { return connection.portField.getText().strip(); }
     public boolean isPlaying() { return playing; }
-    public GameState gameState() { return playingScreen.board().state(); }
+    public GameState gameState() { return gameScreen.board().state(); }
     public void onScreenChanged(Consumer<Boolean> action) { screenChanged = action; }
 
     public void prefill(String name, String host, int port) {
@@ -69,17 +69,17 @@ public final class LobbyView extends BorderPane {
     public void onJoin(Runnable action) { connection.joinButton.setOnAction(e -> action.run()); }
     public void onLeave(Runnable action) {
         connection.leaveButton.setOnAction(e -> action.run());
-        playingScreen.onLeave(action);
+        gameScreen.onLeave(action);
     }
     public void onReady(Runnable action) { players.readyButton.setOnAction(e -> action.run()); }
     public void onStart(Runnable action) { players.startButton.setOnAction(e -> action.run()); }
     public void onChat(Consumer<String> action) { chat.onSend(action); }
-    public void onGameCommand(Consumer<String[]> action) { playingScreen.onCommand(action); }
-    public void onEndTurn(Runnable action) { playingScreen.onEndTurn(action); }
-    public void onRollDice(Runnable action) { playingScreen.onRollDice(action); }
-    public void onPlaceSettlement(IntConsumer action) { playingScreen.onPlaceSettlement(action); }
-    public void onPlaceRoad(IntConsumer action) { playingScreen.onPlaceRoad(action); }
-    public void showStatus(String value) { status.setText(value); playingScreen.showStatus(value); }
+    public void onGameCommand(Consumer<String[]> action) { gameScreen.onCommand(action); }
+    public void onEndTurn(Runnable action) { gameScreen.onEndTurn(action); }
+    public void onRollDice(Runnable action) { gameScreen.onRollDice(action); }
+    public void onPlaceSettlement(IntConsumer action) { gameScreen.onPlaceSettlement(action); }
+    public void onPlaceRoad(IntConsumer action) { gameScreen.onPlaceRoad(action); }
+    public void showStatus(String value) { status.setText(value); gameScreen.showStatus(value); }
     public void showAddress(String value) { connection.showAddress(value); }
     public void appendChat(String name, String message) { chat.append(name, message); }
     public void clearChat() { chat.clear(); }
@@ -92,17 +92,17 @@ public final class LobbyView extends BorderPane {
         chat.setConnected(true);
         if (!state.started()) {
             showLobby();
-            playingScreen.reset();
+            gameScreen.reset();
             showStatus("Lobby: " + state.players().size() + "/4 connected. All four players must mark ready.");
         }
     }
 
     public void renderGame(GameState state, int playerId) {
-        playingScreen.render(state, playerId, playerNames);
+        gameScreen.render(state, playerId, playerNames);
         if (!playing) {
             lobbySidebar.getChildren().remove(chat);
-            playingScreen.attachChat(chat);
-            setCenter(playingScreen);
+            gameScreen.attachChat(chat);
+            setCenter(gameScreen);
             playing = true;
             screenChanged.accept(true);
         }
@@ -111,7 +111,7 @@ public final class LobbyView extends BorderPane {
 
     private void showLobby() {
         if (!playing) return;
-        playingScreen.detachChat();
+        gameScreen.detachChat();
         lobbySidebar.getChildren().add(chat);
         setCenter(lobbyScreen);
         playing = false;
@@ -125,6 +125,6 @@ public final class LobbyView extends BorderPane {
         players.reset();
         chat.setConnected(false);
         playerNames.clear();
-        playingScreen.reset();
+        gameScreen.reset();
     }
 }
