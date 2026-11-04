@@ -7,16 +7,22 @@ import java.util.HashSet;
 
 /** Full public game snapshot. Revision prevents stale or duplicate turn commands. */
 public record GameState(Board board, List<Integer> turnOrder, int currentPlayerId,
-                        GamePhase phase, int turnNumber, long revision, Pieces pieces) {
+                        GamePhase phase, int turnNumber, long revision, Pieces pieces, DiceResult dice) {
     public GameState {
         Objects.requireNonNull(board);
         Objects.requireNonNull(phase);
         Objects.requireNonNull(pieces);
+        Objects.requireNonNull(dice);
         turnOrder = List.copyOf(turnOrder);
         if (turnOrder.size() != 4 || !new HashSet<>(turnOrder).equals(Set.of(0, 1, 2, 3))
                 || !turnOrder.contains(currentPlayerId) || turnNumber < 0 || revision < 0) {
             throw new IllegalArgumentException("Invalid turn state");
         }
+    }
+
+    public GameState(Board board, List<Integer> turnOrder, int currentPlayerId,
+                     GamePhase phase, int turnNumber, long revision, Pieces pieces) {
+        this(board, turnOrder, currentPlayerId, phase, turnNumber, revision, pieces, DiceResult.NONE);
     }
 
     /** The original constructor, kept so existing code still compiles: starts with no pieces. */
@@ -27,7 +33,7 @@ public record GameState(Board board, List<Integer> turnOrder, int currentPlayerI
 
     /** Same turn, new pieces, next revision. */
     public GameState withPieces(Pieces newPieces) {
-        return new GameState(board, turnOrder, currentPlayerId, phase, turnNumber, revision + 1, newPieces);
+        return new GameState(board, turnOrder, currentPlayerId, phase, turnNumber, revision + 1, newPieces, dice);
     }
 
     /** Same pieces, new turn info (use after TurnManager.advance()), next revision. */

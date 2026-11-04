@@ -15,6 +15,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
@@ -60,13 +61,18 @@ public final class PlayingScreen extends BorderPane {
                     + "-fx-background-radius: 8; -fx-cursor: hand;";
 
     private final HexBoardView board = new HexBoardView();
+    private final DiceRollAnimation diceAnimation = new DiceRollAnimation();
+    private final Label diceSummary = label("Roll to begin your turn.", 14, GOLD, true);
+    private boolean rolled;
+    private boolean diceRevealed;
+    private int animatedTurn = -1;
 
     private final VBox playerRows = new VBox(8);
     private final Label phaseBadge = label("", 13, BG, true);
     private final Label turnBanner = label("Waiting for the host…", 26, GOLD, true);
     private final Label instruction = label("", 15, TEXT, false);
     private final Label statusLabel = label("", 13, TEXT, false);
-    private final HBox setupTracker = new HBox(4);
+    private final FlowPane setupTracker = new FlowPane(4, 4);
     private final VBox chatHolder = new VBox();
     private final Label[] handCounts = new Label[CARD_NAMES.length];
     private VBox actionsPanel;
@@ -86,11 +92,12 @@ public final class PlayingScreen extends BorderPane {
     private boolean setup;
 
     public PlayingScreen() {
+        diceSummary.setId("dice-summary");
         setStyle("-fx-background-color: " + BG + ";");
         setPadding(new Insets(18));
 
         setLeft(buildPlayers());
-        setCenter(buildCenter());
+        setCenter(new StackPane(buildCenter(), diceAnimation));
         setRight(buildRight());
         setBottom(buildHand());
 
@@ -131,6 +138,25 @@ public final class PlayingScreen extends BorderPane {
         board.render(state);
         myTurn = state.currentPlayerId() == playerId;
         setup = SetupRules.isSetup(state);
+        rolled = state.dice().rolled();
+        if (rolled && animatedTurn != state.turnNumber()) {
+            animatedTurn = state.turnNumber();
+            diceRevealed = false;
+            diceSummary.setText("Rolling…");
+            int revealingTurn = state.turnNumber();
+            diceAnimation.play(state.dice(), () -> {
+                if (rolled && animatedTurn == revealingTurn) {
+                    diceRevealed = true;
+                    diceSummary.setText("Dice: " + state.dice().first() + " + " + state.dice().second()
+                            + " = " + state.dice().total());
+                    updateButtons();
+                }
+            });
+        } else if (!rolled) {
+            diceRevealed = false;
+            diceSummary.setText("Roll to begin your turn.");
+            diceAnimation.clear();
+        }
         String current = nameOf(state.currentPlayerId(), names);
 
         if (setup) {
@@ -164,6 +190,11 @@ public final class PlayingScreen extends BorderPane {
         board.clear();
         myTurn = false;
         setup = false;
+        rolled = false;
+        diceRevealed = false;
+        animatedTurn = -1;
+        diceAnimation.clear();
+        diceSummary.setText("Roll to begin your turn.");
         playerRows.getChildren().clear();
         setupTracker.getChildren().clear();
         phaseBadge.setText("WAITING");
@@ -256,6 +287,8 @@ public final class PlayingScreen extends BorderPane {
         instruction.setAlignment(Pos.CENTER);
         VBox.setVgrow(board, Priority.ALWAYS);
         VBox center = new VBox(6, phaseBadge, turnBanner, instruction, setupTracker, statusLabel, board);
+        center.setMinWidth(0);
+        setupTracker.setMinWidth(0);
         center.setAlignment(Pos.TOP_CENTER);
         return center;
     }
@@ -267,7 +300,7 @@ public final class PlayingScreen extends BorderPane {
         chatHolder.setStyle(PANEL_STYLE);
         VBox.setVgrow(chatHolder, Priority.ALWAYS);
 
-        VBox actions = new VBox(8, label("ACTIONS", 13, TEXT, true), actionsNote,
+        VBox actions = new VBox(8, label("ACTIONS", 13, TEXT, true), actionsNote, diceSummary,
                 rollButton, buyButton, tradeButton, devCardButton, endTurnButton);
         actions.setStyle(PANEL_STYLE);
         actionsPanel = actions;
@@ -336,6 +369,8 @@ public final class PlayingScreen extends BorderPane {
             chip.setArcHeight(4);
             Label name = label(nameOf(id, names) + (id == playerId ? " · You" : ""), 15,
                     current ? GOLD : TEXT, true);
+            name.setMinWidth(0);
+            HBox.setHgrow(name, Priority.ALWAYS);
             HBox top = new HBox(8, chip, name);
             top.setAlignment(Pos.CENTER_LEFT);
 
@@ -363,11 +398,11 @@ public final class PlayingScreen extends BorderPane {
 
     private void updateButtons() {
         boolean playing = myTurn && !setup;
-        rollButton.setDisable(!playing || onRoll == null);
+        rollButton.setDisable(!playing || rolled || onRoll == null);
         buyButton.setDisable(!playing || onBuy == null);
         tradeButton.setDisable(!playing || onTrade == null);
         devCardButton.setDisable(!playing || onDevelopmentCard == null);
-        endTurnButton.setDisable(!playing || onEndTurn == null);
+        endTurnButton.setDisable(!playing || !rolled || !diceRevealed || onEndTurn == null);
         for (Button b : List.of(rollButton, buyButton, tradeButton, devCardButton)) {
             b.setTooltip(b.isDisabled() && playing ? new Tooltip("Coming soon") : null);
         }

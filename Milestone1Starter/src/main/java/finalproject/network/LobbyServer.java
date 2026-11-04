@@ -1,6 +1,7 @@
 package finalproject.network;
 
 import finalproject.game.*;
+import finalproject.Dice;
 import java.io.*;
 import java.net.*;
 import java.util.*;
@@ -21,6 +22,8 @@ public final class LobbyServer implements AutoCloseable {
     private Board board;
     private TurnManager turns;
     private Pieces pieces = Pieces.EMPTY;
+    private final Dice die = new Dice();
+    private DiceResult dice = DiceResult.NONE;
     private long gameRevision;
     private volatile boolean closed;
 
@@ -100,6 +103,7 @@ public final class LobbyServer implements AutoCloseable {
                 board = BoardGenerator.generate(random);
                 turns = new TurnManager(new ArrayList<>(peers.keySet()), random);
                 pieces = Pieces.EMPTY;
+                dice = DiceResult.NONE;
                 gameRevision++;
                 started = true;
                 snapshot();
@@ -117,13 +121,30 @@ public final class LobbyServer implements AutoCloseable {
                 Wire.send(peer.out, "ERROR", "That turn request is stale. Use the latest game state.");
             } else if (SetupRules.isSetup(currentGame())) {
                 Wire.send(peer.out, "ERROR", "During setup your turn ends when you place your road.");
+            } else if (!dice.rolled()) {
+                Wire.send(peer.out, "ERROR", "Roll the dice before ending your turn.");
             } else {
                 turns.advance();
+                dice = DiceResult.NONE;
                 gameRevision++;
                 broadcastGame();
             }
         } else if (fields[0].equals("PLACE_SETTLEMENT") || fields[0].equals("PLACE_ROAD")) {
             place(peer, fields);
+        } else if (fields[0].equals("ROLL_DICE")) {
+            if (!started || turns == null || SetupRules.isSetup(currentGame())) {
+                Wire.send(peer.out, "ERROR", "Dice can only be rolled during normal play.");
+            } else if (peer.id != turns.currentPlayerId()) {
+                Wire.send(peer.out, "ERROR", "It is not your turn.");
+            } else if (fields.length != 2 || !fields[1].equals(Long.toString(gameRevision))) {
+                Wire.send(peer.out, "ERROR", "That roll request is stale. Use the latest game state.");
+            } else if (dice.rolled()) {
+                Wire.send(peer.out, "ERROR", "You have already rolled this turn.");
+            } else {
+                dice = new DiceResult(die.roll(), die.roll());
+                gameRevision++;
+                broadcastGame();
+            }
         }
     }
 
@@ -159,7 +180,7 @@ public final class LobbyServer implements AutoCloseable {
 
     private GameState currentGame() {
         return new GameState(board, turns.order(), turns.currentPlayerId(),
-                turns.phase(), turns.turnNumber(), gameRevision, pieces);
+                turns.phase(), turns.turnNumber(), gameRevision, pieces, dice);
     }
 
     private void broadcastGame() {
@@ -191,6 +212,7 @@ public final class LobbyServer implements AutoCloseable {
         board = null;
         turns = null;
         pieces = Pieces.EMPTY;
+        dice = DiceResult.NONE;
         peers.values().forEach(p -> p.ready = false);
         broadcast("CHAT", "Lobby", peer.name + " disconnected. Waiting for four ready players.");
         snapshot();
