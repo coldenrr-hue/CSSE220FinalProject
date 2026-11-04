@@ -7,7 +7,12 @@ import java.util.HashSet;
 
 /** Full public game snapshot. Revision prevents stale or duplicate turn commands. */
 public record GameState(Board board, List<Integer> turnOrder, int currentPlayerId,
-                        GamePhase phase, int turnNumber, long revision, Pieces pieces, DiceResult dice) {
+                        GamePhase phase, int turnNumber, long revision, Pieces pieces, DiceResult dice, TradeOffer offer) {
+    public GameState(Board board, List<Integer> turnOrder, int currentPlayerId,
+                     GamePhase phase, int turnNumber, long revision, Pieces pieces, DiceResult dice) {
+        this(board, turnOrder, currentPlayerId, phase, turnNumber, revision, pieces, dice, null);
+    }
+
     public GameState {
         Objects.requireNonNull(board);
         Objects.requireNonNull(phase);

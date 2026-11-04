@@ -15,11 +15,17 @@ import java.util.Map;
  * hands:              player ID -> resource cards (FOREST = lumber, PASTURE = wool, ...)
  */
 public record Pieces(Map<Integer, Integer> settlements, Map<Integer, Integer> roads,
-                     int pendingSettlement, Map<Integer, List<ResourceType>> hands) {
+                     int pendingSettlement, Map<Integer, List<ResourceType>> hands, java.util.Set<Integer> cities) {
 
     public static final Pieces EMPTY = new Pieces(Map.of(), Map.of(), -1, Map.of());
 
+    public Pieces(Map<Integer, Integer> settlements, Map<Integer, Integer> roads,
+                  int pendingSettlement, Map<Integer, List<ResourceType>> hands) {
+        this(settlements, roads, pendingSettlement, hands, java.util.Set.of());
+    }
+
     public Pieces {
+        cities = java.util.Set.copyOf(cities);
         settlements = Map.copyOf(settlements);
         roads = Map.copyOf(roads);
         Map<Integer, List<ResourceType>> copy = new HashMap<>();
@@ -30,13 +36,13 @@ public record Pieces(Map<Integer, Integer> settlements, Map<Integer, Integer> ro
     public Pieces withSettlement(int vertexId, int playerId) {
         Map<Integer, Integer> s = new HashMap<>(settlements);
         s.put(vertexId, playerId);
-        return new Pieces(s, roads, vertexId, hands);
+        return new Pieces(s, roads, vertexId, hands, cities);
     }
 
     public Pieces withRoad(int edgeId, int playerId) {
         Map<Integer, Integer> r = new HashMap<>(roads);
         r.put(edgeId, playerId);
-        return new Pieces(settlements, r, -1, hands);
+        return new Pieces(settlements, r, -1, hands, cities);
     }
 
     public Pieces withCards(int playerId, List<ResourceType> newCards) {
@@ -44,7 +50,19 @@ public record Pieces(Map<Integer, Integer> settlements, Map<Integer, Integer> ro
         List<ResourceType> cards = new ArrayList<>(hand(playerId));
         cards.addAll(newCards);
         h.put(playerId, cards);
-        return new Pieces(settlements, roads, pendingSettlement, h);
+        return new Pieces(settlements, roads, pendingSettlement, h, cities);
+    }
+
+    public Pieces replaceHand(int player, List<ResourceType> cards) {
+        Map<Integer, List<ResourceType>> h = new HashMap<>(hands);
+        h.put(player, cards);
+        return new Pieces(settlements, roads, pendingSettlement, h, cities);
+    }
+
+    public Pieces withCity(int vertex) {
+        var c = new java.util.HashSet<>(cities);
+        c.add(vertex);
+        return new Pieces(settlements, roads, -1, hands, c);
     }
 
     public List<ResourceType> hand(int playerId) {
@@ -57,13 +75,17 @@ public record Pieces(Map<Integer, Integer> settlements, Map<Integer, Integer> ro
 
     /**
      * A player's victory points, worked out from what they have on the board.
-     * Right now: 1 point per settlement. Add cities (2 each), Longest Road,
-     * Largest Army and VP cards here as those features are built.
+     * One point per settlement and two per city. Longest Road, Largest Army
+     * and VP cards will be included when those features are built.
      * Every laptop gets the same pieces from the host, so every laptop
      * calculates the same score for each player.
      */
     public int victoryPoints(int playerId) {
-        return settlementCount(playerId);
+        return settlementCount(playerId) + (int) cities.stream().filter(v -> settlements.get(v) == playerId).count();
+    }
+
+    public int cityCount(int playerId) {
+        return (int) cities.stream().filter(v -> settlements.get(v) == playerId).count();
     }
 
     public int roadCount(int playerId) {

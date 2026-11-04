@@ -17,7 +17,7 @@ chat and actions on the right, and your resource cards along the bottom.
 - `Dice` is George's die generator; only the host rolls it for a shared game.
 - `game/DiceResult` and `game/GameState` carry the current turn's dice and board.
 - `network/LobbyServer` validates moves against the connection, phase, and revision.
-- `network/GameStateCodec` version 3 carries the same complete snapshot to all clients.
+- `network/GameStateCodec` version 4 carries the same complete snapshot to all clients.
 
 ## Views and assets
 
@@ -36,6 +36,36 @@ remain visible. Resource-card hands are currently public in the shared prototype
 
 ## Remaining work
 
-Setup and shared rolls work. Normal-play building, production from dice, robber
-rules, trades, development cards and victory conditions remain to be implemented.
+Setup, shared rolls, resource production, normal building and trading work.
+Robber movement, discards/stealing on a seven, development cards, Longest Road,
+Largest Army and victory conditions remain to be implemented. A seven currently
+produces no resources.
 Guest disconnection cancels the match and returns players to an unready lobby.
+
+
+## Trading, docks and building
+
+After rolling, use **Trade** to exchange resources with the bank or propose an
+exchange to a named player. Both sides can contain multiple resource types for
+player trades, but the same resource cannot appear on both sides. The recipient
+must accept before cards move; they can decline, and the proposer can cancel or
+replace the offer. Table chat can be used to negotiate another offer. Only the
+active player initiates trades, and each accepted trade involves that player.
+Ending a turn or successfully buying/building clears any outstanding offer.
+
+Bank trades use 4 identical cards for 1 by default. A settlement or city at either
+end of a dock grants 3:1 for a general dock or 2:1 for the pictured resource.
+There are four general docks and one for each resource, consistently located
+around the coast on every client. The wooden piers and boat illustrations are
+native scalable artwork, with the existing resource icons on specialized docks.
+The bank has 19 cards of each resource, calculated from cards in players' hands.
+
+**Build** offers roads (lumber + brick), settlements (lumber + brick + wool +
+grain), and cities (3 ore + 2 grain). Choose a piece, then a highlighted legal
+location. The host checks costs, connectivity, the distance rule and piece
+limits. A city upgrades your settlement and produces two cards on matching rolls.
+Building and trading can be interleaved after rolling. All players must run this
+version because the shared snapshot format now includes cities and trade offers.
+
+Regression checks: `TradingBuildingTest`, `LobbyIntegrationTest` (four real
+clients), and `TradingViewTest` (JavaFX UI and `target/trading-board.png`).

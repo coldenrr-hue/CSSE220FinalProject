@@ -69,6 +69,7 @@ public class HexBoardView extends StackPane {
     private static final String[] SEAT_NAMES = {"red", "blue", "yellow", "green"};
     private final Image[] settlementArt = new Image[4];
     private final Image[] roadArt = new Image[4];
+    private final Image[] cityArt = new Image[4];
 
     private GameState state;
     private Board drawnBoard;
@@ -80,6 +81,7 @@ public class HexBoardView extends StackPane {
         }
         for (int seat = 0; seat < 4; seat++) {
             settlementArt[seat] = loadOptional("/pieces/settlement_" + SEAT_NAMES[seat] + ".png");
+            cityArt[seat] = loadOptional("/pieces/city_" + SEAT_NAMES[seat] + ".png");
             roadArt[seat] = loadOptional("/pieces/road_" + SEAT_NAMES[seat] + ".png");
         }
         content.setPrefSize(VIEW_W, VIEW_H);
@@ -171,6 +173,20 @@ public class HexBoardView extends StackPane {
         }
     }
 
+    /** Large rings leave the existing settlement visible while selecting a city upgrade. */
+    public void showCitySpots(List<Integer> vertexIds, IntConsumer onClick) {
+        showSettlementSpots(vertexIds, onClick);
+        for (Node node : spotLayer.getChildren()) {
+            Circle ring = (Circle) node;
+            ring.setId(ring.getId().replace("settlement-spot-", "city-spot-"));
+            ring.setRadius(23); ring.setFill(Color.web("#f3cc80", 0.12));
+            ring.setStrokeWidth(3);
+            ring.setOnMouseEntered(e -> { ring.setRadius(25); ring.setFill(Color.web("#f3cc80", 0.3)); });
+            ring.setOnMouseExited(e -> { ring.setRadius(23); ring.setFill(Color.web("#f3cc80", 0.12)); });
+            javafx.scene.control.Tooltip.install(ring, new javafx.scene.control.Tooltip("Upgrade to city: 3 ore + 2 grain"));
+        }
+    }
+
     public void clearSpots() { spotLayer.getChildren().clear(); }
 
     // ---------- drawing ----------
@@ -205,11 +221,60 @@ public class HexBoardView extends StackPane {
             tileLayer.getChildren().add(tileNode(tile.resource(), cx, cy));
             if (tile.number() != 0) tileLayer.getChildren().add(token(tile.number(), cx, cy));
         }
+        drawHarbors();
         // TODO: GameState has no robber position yet. It starts on the desert, so draw it there for now.
         for (Tile tile : drawnBoard.tiles()) {
             if (tile.resource() == ResourceType.DESERT) {
                 tileLayer.getChildren().add(robberNode(tileCenterX(tile.q(), tile.r()), tileCenterY(tile.r())));
             }
+        }
+    }
+
+    /** Scalable dock illustrations: wooden piers connect both eligible coastal corners. */
+    private void drawHarbors() {
+        BoardGraph graph = BoardGraph.of(drawnBoard);
+        for (var harbor : finalproject.game.Harbors.of(drawnBoard)) {
+            var a = graph.vertex(harbor.a()); var b = graph.vertex(harbor.b());
+            double mx = (vertexX(a) + vertexX(b)) / 2, my = (vertexY(a) + vertexY(b)) / 2;
+            double dx = mx - VIEW_W / 2, dy = my - VIEW_H / 2;
+            double length = Math.hypot(dx, dy); dx /= length; dy /= length;
+            double x = mx + dx * 30, y = my + dy * 30;
+            Group dock = new Group(); dock.setId("harbor-" + harbor.a());
+            for (var v : List.of(a, b)) {
+                double vx = vertexX(v), vy = vertexY(v);
+                Line pier = new Line(vx, vy, x, y);
+                pier.setStroke(Color.web("#593a24")); pier.setStrokeWidth(9);
+                dock.getChildren().add(pier);
+                double px = x - vx, py = y - vy, distance = Math.hypot(px, py);
+                for (int step = 1; step <= 5; step++) {
+                    double cx = vx + px * step / 6, cy = vy + py * step / 6;
+                    Line plank = new Line(cx - py / distance * 4, cy + px / distance * 4,
+                            cx + py / distance * 4, cy - px / distance * 4);
+                    plank.setStroke(Color.web("#d6aa6b")); plank.setStrokeWidth(3);
+                    dock.getChildren().add(plank);
+                }
+            }
+            Circle badge = new Circle(x, y, 19, Color.web("#f7ecd0"));
+            badge.setStroke(Color.web("#6e4528")); badge.setStrokeWidth(2);
+            dock.getChildren().add(badge);
+            String iconName = TradeDialog.name(harbor.resource()).toLowerCase(java.util.Locale.ROOT);
+            Image icon = loadOptional("/icons/" + iconName + ".png");
+            if (icon != null) {
+                ImageView view = new ImageView(icon); view.setFitWidth(19); view.setFitHeight(19);
+                view.setLayoutX(x - 9.5); view.setLayoutY(y - 17); dock.getChildren().add(view);
+            } else {
+                Polygon hull = new Polygon(x - 12, y - 5, x + 12, y - 5, x + 7, y, x - 7, y);
+                hull.setFill(Color.web("#8b5838"));
+                Polygon sail = new Polygon(x, y - 16, x, y - 6, x + 10, y - 6);
+                sail.setFill(Color.web("#ba5946")); dock.getChildren().addAll(hull, sail);
+            }
+            Text ratio = new Text(x - 10, y + 13, harbor.label());
+            ratio.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-fill: #35291d;");
+            dock.getChildren().add(ratio);
+            javafx.scene.control.Tooltip.install(dock, new javafx.scene.control.Tooltip(
+                    harbor.resource() == ResourceType.DESERT ? "General dock: trade 3 identical resources for 1. Build on either connected corner."
+                    : TradeDialog.name(harbor.resource()) + " dock: trade 2 for 1. Build on either connected corner."));
+            tileLayer.getChildren().add(dock);
         }
     }
 
@@ -224,7 +289,18 @@ public class HexBoardView extends StackPane {
                 pieceLayer.getChildren().add(roadNode(graph, graph.edge(edgeId), player)));
         pieces.settlements().forEach((vertexId, player) -> {
             BoardGraph.Vertex v = graph.vertex(vertexId);
-            pieceLayer.getChildren().add(settlementNode(vertexX(v), vertexY(v), player));
+            if (pieces.cities().contains(vertexId)) {
+                if (cityArt[player] != null) {
+                    ImageView city = new ImageView(cityArt[player]);
+                    city.setFitWidth(40); city.setFitHeight(40);
+                    city.setLayoutX(vertexX(v) - 20); city.setLayoutY(vertexY(v) - 25);
+                    pieceLayer.getChildren().add(city);
+                } else {
+                    Group city = new Group(settlementShape(vertexX(v) - 5, vertexY(v), SEAT_COLORS[player]),
+                            settlementShape(vertexX(v) + 7, vertexY(v) - 5, SEAT_COLORS[player]));
+                    pieceLayer.getChildren().add(city);
+                }
+            } else pieceLayer.getChildren().add(settlementNode(vertexX(v), vertexY(v), player));
         });
     }
 

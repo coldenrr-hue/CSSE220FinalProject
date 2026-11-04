@@ -81,7 +81,8 @@ public final class PlayingScreen extends BorderPane {
     private final Button leaveButton = button("Leave table", DARK_BUTTON);
     private final Label actionsNote = label("", 12, TEXT, false);
     private final Button rollButton = button("Roll dice", GOLD_BUTTON);
-    private final Button buyButton = button("Buy", GOLD_BUTTON);
+    private final Button cancelBuild = button("Cancel placement", DARK_BUTTON);
+    private final Button buyButton = button("Build", GOLD_BUTTON);
     private final Button tradeButton = button("Trade", GOLD_BUTTON);
     private final Button devCardButton = button("Development card", GOLD_BUTTON);
     private final Button endTurnButton = button("End turn", GOLD_BUTTON);
@@ -90,6 +91,63 @@ public final class PlayingScreen extends BorderPane {
     private IntConsumer onPlaceSettlement, onPlaceRoad;
     private boolean myTurn;
     private boolean setup;
+    private GameState latestState;
+    private int localPlayer;
+    private Map<Integer, String> playerNames = Map.of();
+    private java.util.function.Consumer<String[]> command;
+    private final VBox tradeOfferPanel = new VBox(6);
+
+    public void onCommand(java.util.function.Consumer<String[]> action) {
+        command = action;
+        onBuy(this::chooseBuild);
+        onTrade(() -> TradeDialog.show(latestState, localPlayer, playerNames, command));
+    }
+
+    private void chooseBuild() {
+        if (latestState == null) return;
+        GameState snapshot = latestState;
+        BuildDialog.show(snapshot, localPlayer, kind -> {
+            if (latestState == null || latestState.revision() != snapshot.revision()) {
+                showStatus("The board changed. Open Build again to choose a piece.");
+                return;
+            }
+            var spots = finalproject.game.PlayRules.legalBuilds(snapshot, localPlayer, kind);
+            boolean city = kind == finalproject.game.PlayRules.Build.CITY;
+            instruction.setText(city ? "Click one of your ringed settlements to upgrade it for 3 ore + 2 grain."
+                    : "Click a glowing location to build your " + kind.name().toLowerCase(java.util.Locale.ROOT) + ".");
+            cancelBuild.setVisible(true); cancelBuild.setManaged(true);
+            java.util.function.IntConsumer place = spot -> {
+                board.clearSpots();
+                cancelBuild.setVisible(false); cancelBuild.setManaged(false);
+                command.accept(new String[]{"BUILD", kind.name(), "" + spot, "" + snapshot.revision()});
+            };
+            if (kind == finalproject.game.PlayRules.Build.ROAD) board.showRoadSpots(spots, place);
+            else if (city) board.showCitySpots(spots, place);
+            else board.showSettlementSpots(spots, place);
+        });
+    }
+
+    private void renderOffer(GameState state) {
+        tradeOfferPanel.getChildren().clear();
+        var offer = state.offer();
+        if (offer == null) return;
+        Label text = label(nameOf(offer.from(), playerNames) + " offers " + TradeDialog.cards(offer.give())
+                + " for " + TradeDialog.cards(offer.receive()) + " from " + nameOf(offer.to(), playerNames), 13, TEXT, false);
+        tradeOfferPanel.getChildren().add(text);
+        if (command == null) return;
+        if (localPlayer == offer.to()) {
+            Button accept = button("Accept", GOLD_BUTTON), decline = button("Decline", DARK_BUTTON);
+            accept.setDisable(!finalproject.game.PlayRules.owns(state.pieces(), localPlayer, offer.receive()));
+            if (accept.isDisabled()) tradeOfferPanel.getChildren().add(label("You do not have the requested cards.", 12, GOLD, false));
+            accept.setOnAction(e -> command.accept(new String[]{"TRADE_ACCEPT", "" + state.revision()}));
+            decline.setOnAction(e -> command.accept(new String[]{"TRADE_DECLINE", "" + state.revision()}));
+            tradeOfferPanel.getChildren().add(new HBox(6, accept, decline));
+        } else if (localPlayer == offer.from()) {
+            Button cancel = button("Cancel offer", DARK_BUTTON);
+            cancel.setOnAction(e -> command.accept(new String[]{"TRADE_CANCEL", "" + state.revision()}));
+            tradeOfferPanel.getChildren().add(cancel);
+        }
+    }
 
     public PlayingScreen() {
         diceSummary.setId("dice-summary");
@@ -101,6 +159,11 @@ public final class PlayingScreen extends BorderPane {
         setRight(buildRight());
         setBottom(buildHand());
 
+        cancelBuild.setVisible(false); cancelBuild.setManaged(false);
+        cancelBuild.setOnAction(e -> {
+            board.clearSpots(); instruction.setText("");
+            cancelBuild.setVisible(false); cancelBuild.setManaged(false);
+        });
         rollButton.setOnAction(e -> run(onRoll));
         buyButton.setOnAction(e -> run(onBuy));
         tradeButton.setOnAction(e -> run(onTrade));
@@ -135,6 +198,9 @@ public final class PlayingScreen extends BorderPane {
     public void detachChat() { chatHolder.getChildren().clear(); }
 
     public void render(GameState state, int playerId, Map<Integer, String> names) {
+        cancelBuild.setVisible(false); cancelBuild.setManaged(false);
+        latestState = state; localPlayer = playerId; playerNames = Map.copyOf(names);
+        renderOffer(state);
         board.render(state);
         myTurn = state.currentPlayerId() == playerId;
         setup = SetupRules.isSetup(state);
@@ -187,6 +253,9 @@ public final class PlayingScreen extends BorderPane {
     }
 
     public void reset() {
+        cancelBuild.setVisible(false); cancelBuild.setManaged(false);
+        latestState = null;
+        tradeOfferPanel.getChildren().clear();
         board.clear();
         myTurn = false;
         setup = false;
@@ -286,7 +355,7 @@ public final class PlayingScreen extends BorderPane {
         setupTracker.setAlignment(Pos.CENTER);
         instruction.setAlignment(Pos.CENTER);
         VBox.setVgrow(board, Priority.ALWAYS);
-        VBox center = new VBox(6, phaseBadge, turnBanner, instruction, setupTracker, statusLabel, board);
+        VBox center = new VBox(6, phaseBadge, turnBanner, instruction, cancelBuild, setupTracker, statusLabel, board);
         center.setMinWidth(0);
         setupTracker.setMinWidth(0);
         center.setAlignment(Pos.TOP_CENTER);
@@ -301,7 +370,7 @@ public final class PlayingScreen extends BorderPane {
         VBox.setVgrow(chatHolder, Priority.ALWAYS);
 
         VBox actions = new VBox(8, label("ACTIONS", 13, TEXT, true), actionsNote, diceSummary,
-                rollButton, buyButton, tradeButton, devCardButton, endTurnButton);
+                rollButton, buyButton, tradeButton, tradeOfferPanel, devCardButton, endTurnButton);
         actions.setStyle(PANEL_STYLE);
         actionsPanel = actions;
         for (Button b : List.of(rollButton, buyButton, tradeButton, devCardButton, endTurnButton)) {
@@ -376,8 +445,8 @@ public final class PlayingScreen extends BorderPane {
 
             Pieces pieces = state.pieces();
             int vp = pieces.victoryPoints(id);
-            Label detail = label(vp + " VP   ·   " + pieces.settlementCount(id) + " settlements   ·   "
-                    + pieces.roadCount(id) + " roads", 12, TEXT, false);
+            Label detail = label(vp + " VP   ·   " + (pieces.settlementCount(id) - pieces.cityCount(id)) + " settlements   ·   "
+                    + pieces.roadCount(id) + " roads   /   " + pieces.cityCount(id) + " cities", 12, TEXT, false);
 
             VBox row = new VBox(3, top, detail);
             row.setStyle("-fx-padding: 9; -fx-background-radius: 8; -fx-background-color: "
@@ -399,12 +468,12 @@ public final class PlayingScreen extends BorderPane {
     private void updateButtons() {
         boolean playing = myTurn && !setup;
         rollButton.setDisable(!playing || rolled || onRoll == null);
-        buyButton.setDisable(!playing || onBuy == null);
-        tradeButton.setDisable(!playing || onTrade == null);
+        buyButton.setDisable(!playing || !rolled || !diceRevealed || onBuy == null);
+        tradeButton.setDisable(!playing || !rolled || !diceRevealed || onTrade == null);
         devCardButton.setDisable(!playing || onDevelopmentCard == null);
         endTurnButton.setDisable(!playing || !rolled || !diceRevealed || onEndTurn == null);
         for (Button b : List.of(rollButton, buyButton, tradeButton, devCardButton)) {
-            b.setTooltip(b.isDisabled() && playing ? new Tooltip("Coming soon") : null);
+            b.setTooltip(b.isDisabled() && playing ? new Tooltip(b == devCardButton ? "Coming soon" : "Roll the dice first") : null);
         }
     }
 

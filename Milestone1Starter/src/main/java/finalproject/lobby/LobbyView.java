@@ -74,6 +74,7 @@ public final class LobbyView extends BorderPane {
     public void onReady(Runnable action) { players.readyButton.setOnAction(e -> action.run()); }
     public void onStart(Runnable action) { players.startButton.setOnAction(e -> action.run()); }
     public void onChat(Consumer<String> action) { chat.onSend(action); }
+    public void onGameCommand(Consumer<String[]> action) { playingScreen.onCommand(action); }
     public void onEndTurn(Runnable action) { playingScreen.onEndTurn(action); }
     public void onRollDice(Runnable action) { playingScreen.onRollDice(action); }
     public void onPlaceSettlement(IntConsumer action) { playingScreen.onPlaceSettlement(action); }

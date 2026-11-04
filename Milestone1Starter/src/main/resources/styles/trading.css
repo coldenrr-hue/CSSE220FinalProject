@@ -1,0 +1,39 @@
+.trade-dialog { -fx-background-color: #12202c; -fx-font-family: "Segoe UI"; }
+.trade-dialog .scroll-pane, .trade-dialog .scroll-pane > .viewport { -fx-background-color: #12202c; }
+.trade-body { -fx-padding: 16; -fx-background-color: #12202c; }
+.trade-title { -fx-font-size: 27px; -fx-font-weight: bold; -fx-text-fill: #f3cc80; }
+.trade-subtitle { -fx-font-size: 13px; -fx-text-fill: #a5bdc9; }
+.trade-partner { -fx-background-color: #233c4c; -fx-text-fill: #d5e6ef; -fx-padding: 10 12;
+    -fx-background-radius: 9; -fx-border-radius: 9; -fx-border-color: transparent; -fx-cursor: hand; }
+.trade-partner:selected { -fx-background-color: #35546a; -fx-border-color: #f3cc80; -fx-text-fill: #fff0cf; }
+.trade-partner:hover { -fx-background-color: #35546a; }
+.trade-hint { -fx-text-fill: #a5bdc9; -fx-font-size: 12px; }
+.trade-section { -fx-background-color: #1d303e; -fx-background-radius: 12; -fx-padding: 12; }
+.trade-section-title { -fx-text-fill: #a5bdc9; -fx-font-size: 11px; -fx-font-weight: bold; }
+.trade-resource { -fx-background-color: #283e4d; -fx-padding: 7 4; -fx-background-radius: 9;
+    -fx-border-color: transparent; -fx-border-radius: 9; }
+.trade-resource:chosen { -fx-background-color: #35546a; -fx-border-color: #f3cc80; }
+.trade-picture { -fx-background-color: #f4e8c9; -fx-background-radius: 7; -fx-padding: 3; }
+.trade-resource-name { -fx-text-fill: #edf5f7; -fx-font-size: 12px; -fx-font-weight: bold; }
+.trade-caption { -fx-text-fill: #a5bdc9; -fx-font-size: 10px; }
+.trade-count { -fx-text-fill: #f3cc80; -fx-font-size: 17px; -fx-font-weight: bold; }
+.trade-step { -fx-background-color: #172a37; -fx-text-fill: #e9f2f6; -fx-font-size: 15px;
+    -fx-font-weight: bold; -fx-background-radius: 6; -fx-min-width: 27; -fx-padding: 1 5; -fx-cursor: hand; }
+.trade-step:hover { -fx-background-color: #46677b; }
+.trade-step:disabled { -fx-opacity: 0.3; }
+.trade-summary { -fx-background-color: #233c4c; -fx-background-radius: 8; -fx-padding: 10;
+    -fx-text-fill: #f3cc80; -fx-font-size: 12px; -fx-max-width: infinity; }
+.trade-error { -fx-text-fill: #ffb5a4; -fx-font-size: 12px; }
+.trade-primary { -fx-background-color: #f3cc80; -fx-text-fill: #12202c; -fx-font-size: 14px;
+    -fx-font-weight: bold; -fx-padding: 11; -fx-background-radius: 8; -fx-cursor: hand; }
+.trade-primary:hover { -fx-background-color: #ffe1a5; }
+.trade-primary:disabled { -fx-opacity: 0.45; }
+.trade-dialog > .button-bar .button { -fx-background-color: #283e4d; -fx-text-fill: #d5e6ef; -fx-background-radius: 7; }
+.trade-dialog .button:focused, .trade-partner:focused { -fx-border-color: #fff0cf; -fx-border-radius: 7; }
+
+.build-card { -fx-background-color: #1d303e; -fx-background-radius: 12; -fx-padding: 14; }
+.build-art { -fx-background-color: #283e4d; -fx-background-radius: 9; -fx-padding: 8; }
+.build-title { -fx-text-fill: #f3cc80; -fx-font-size: 21px; -fx-font-weight: bold; }
+.build-cost { -fx-background-color: #283e4d; -fx-background-radius: 6; -fx-padding: 5 8; }
+.build-cost-missing { -fx-background-color: #654237; -fx-background-radius: 6; -fx-padding: 5 8; }
+.build-ready { -fx-text-fill: #a4d8b4; -fx-font-size: 12px; }

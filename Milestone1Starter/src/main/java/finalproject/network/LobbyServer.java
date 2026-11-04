@@ -24,6 +24,7 @@ public final class LobbyServer implements AutoCloseable {
     private Pieces pieces = Pieces.EMPTY;
     private final Dice die = new Dice();
     private DiceResult dice = DiceResult.NONE;
+    private TradeOffer offer;
     private long gameRevision;
     private volatile boolean closed;
 
@@ -91,7 +92,10 @@ public final class LobbyServer implements AutoCloseable {
     }
 
     private synchronized void command(Peer peer, String[] fields) throws IOException {
-        if (fields.length == 2 && fields[0].equals("CHAT")) {
+        if (fields.length == 0) return;
+        if (fields[0].startsWith("TRADE_") || fields[0].equals("BANK_TRADE") || fields[0].equals("BUILD")) {
+            playCommand(peer, fields);
+        } else if (fields.length == 2 && fields[0].equals("CHAT")) {
             String message = fields[1].strip();
             if (!message.isEmpty() && message.length() <= 300) broadcast("CHAT", peer.name, message);
         } else if (!started && fields.length == 2 && fields[0].equals("READY")) {
@@ -124,6 +128,7 @@ public final class LobbyServer implements AutoCloseable {
             } else if (!dice.rolled()) {
                 Wire.send(peer.out, "ERROR", "Roll the dice before ending your turn.");
             } else {
+                offer = null;
                 turns.advance();
                 dice = DiceResult.NONE;
                 gameRevision++;
@@ -142,6 +147,7 @@ public final class LobbyServer implements AutoCloseable {
                 Wire.send(peer.out, "ERROR", "You have already rolled this turn.");
             } else {
                 dice = new DiceResult(die.roll(), die.roll());
+                pieces = PlayRules.produce(currentGame());
                 gameRevision++;
                 broadcastGame();
             }
@@ -165,7 +171,10 @@ public final class LobbyServer implements AutoCloseable {
         try {
             int spot = Integer.parseInt(fields[1]);
             GameState game = currentGame();
-            if (fields[0].equals("PLACE_SETTLEMENT")) {
+            if (!SetupRules.isSetup(game)) {
+                pieces = PlayRules.build(game, peer.id, fields[0].equals("PLACE_SETTLEMENT") ? PlayRules.Build.SETTLEMENT : PlayRules.Build.ROAD, spot);
+                offer = null;
+            } else if (fields[0].equals("PLACE_SETTLEMENT")) {
                 pieces = SetupRules.placeSettlement(game, peer.id, spot).pieces();
             } else {
                 pieces = SetupRules.placeRoad(game, peer.id, spot).pieces();
@@ -178,9 +187,51 @@ public final class LobbyServer implements AutoCloseable {
         }
     }
 
+    private void playCommand(Peer peer, String[] f) throws IOException {
+        try {
+            if (!started || turns == null) throw new IllegalArgumentException("There is no active game.");
+            if (f.length < 2 || !f[f.length - 1].equals(Long.toString(gameRevision)))
+                throw new IllegalArgumentException("That action is stale. Use the latest game state.");
+            GameState game = currentGame();
+            switch (f[0]) {
+                case "BANK_TRADE" -> {
+                    if (f.length != 5) throw new IllegalArgumentException("Invalid bank trade.");
+                    pieces = PlayRules.bankTrade(game, peer.id, ResourceType.valueOf(f[1]), ResourceType.valueOf(f[2]), Integer.parseInt(f[3]));
+                    offer = null;
+                }
+                case "BUILD" -> {
+                    if (f.length != 4) throw new IllegalArgumentException("Invalid build.");
+                    pieces = PlayRules.build(game, peer.id, PlayRules.Build.valueOf(f[1]), Integer.parseInt(f[2]));
+                    offer = null;
+                }
+                case "TRADE_OFFER" -> {
+                    if (f.length != 5) throw new IllegalArgumentException("Invalid offer.");
+                    TradeOffer next = new TradeOffer(peer.id, Integer.parseInt(f[1]), GameStateCodec.decodeCards(f[2]), GameStateCodec.decodeCards(f[3]));
+                    PlayRules.validateOffer(game, next);
+                    offer = next;
+                }
+                case "TRADE_ACCEPT" -> {
+                    if (f.length != 2) throw new IllegalArgumentException("Invalid acceptance.");
+                    pieces = PlayRules.accept(game, peer.id);
+                    offer = null;
+                }
+                case "TRADE_DECLINE", "TRADE_CANCEL" -> {
+                    if (f.length != 2 || offer == null || peer.id != (f[0].equals("TRADE_CANCEL") ? offer.from() : offer.to()))
+                        throw new IllegalArgumentException("You cannot close this offer.");
+                    offer = null;
+                }
+                default -> throw new IllegalArgumentException("Unknown trade action.");
+            }
+            gameRevision++;
+            broadcastGame();
+        } catch (IllegalArgumentException e) {
+            Wire.send(peer.out, "ERROR", e.getMessage());
+        }
+    }
+
     private GameState currentGame() {
         return new GameState(board, turns.order(), turns.currentPlayerId(),
-                turns.phase(), turns.turnNumber(), gameRevision, pieces, dice);
+                turns.phase(), turns.turnNumber(), gameRevision, pieces, dice, offer);
     }
 
     private void broadcastGame() {
@@ -212,6 +263,7 @@ public final class LobbyServer implements AutoCloseable {
         board = null;
         turns = null;
         pieces = Pieces.EMPTY;
+        offer = null;
         dice = DiceResult.NONE;
         peers.values().forEach(p -> p.ready = false);
         broadcast("CHAT", "Lobby", peer.name + " disconnected. Waiting for four ready players.");

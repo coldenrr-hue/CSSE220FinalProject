@@ -106,6 +106,32 @@ public final class LobbyIntegrationTest {
                     active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("already rolled"));
                     active.client.send("PLACE_SETTLEMENT", "0", Long.toString(game.revision()));
                     active.await(f -> f.get(0).equals("ERROR"));
+                    if (!game.pieces().hand(currentId).isEmpty()) {
+                        ResourceType give = game.pieces().hand(currentId).getFirst();
+                        ResourceType receive = Arrays.stream(ResourceType.values()).filter(r -> r != give && r != ResourceType.DESERT).findFirst().orElseThrow();
+                        Probe recipient = inactive;
+                        active.client.send("TRADE_OFFER", "" + recipient.id, give.name(), receive.name(), "" + game.revision());
+                        game = sameGame(players);
+                        if (game.offer() == null || game.offer().to() != recipient.id) throw new AssertionError("Offer not synchronized");
+                        active.client.send("TRADE_ACCEPT", "" + game.revision());
+                        active.await(f -> f.get(0).equals("ERROR"));
+                        recipient.client.send("TRADE_ACCEPT", "0");
+                        recipient.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("stale"));
+                        if (game.pieces().hand(recipient.id).contains(receive)) {
+                            Pieces expected = PlayRules.accept(game, recipient.id);
+                            recipient.client.send("TRADE_ACCEPT", "" + game.revision());
+                            game = sameGame(players);
+                            if (!game.pieces().equals(expected) || game.offer() != null) throw new AssertionError("Trade did not synchronize");
+                            recipient.client.send("TRADE_ACCEPT", "" + game.revision());
+                            recipient.await(f -> f.get(0).equals("ERROR"));
+                        } else {
+                            recipient.client.send("TRADE_ACCEPT", "" + game.revision());
+                            recipient.await(f -> f.get(0).equals("ERROR"));
+                            recipient.client.send("TRADE_DECLINE", "" + game.revision());
+                            game = sameGame(players);
+                            if (game.offer() != null) throw new AssertionError("Declined offer remained");
+                        }
+                    }
                     before = game.revision();
                     active.client.send("END_TURN", Long.toString(before));
                     game = sameGame(players);

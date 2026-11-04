@@ -33,6 +33,7 @@ public final class LobbyController implements AutoCloseable {
         view.onEndTurn(() -> {
             if (latestGame != null) send("END_TURN", Long.toString(latestGame.revision()));
         });
+        view.onGameCommand(fields -> send(fields));
         view.onRollDice(() -> {
             if (latestGame != null) send("ROLL_DICE", Long.toString(latestGame.revision()));
         });
