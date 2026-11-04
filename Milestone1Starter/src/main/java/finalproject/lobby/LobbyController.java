@@ -1,5 +1,6 @@
 package finalproject.lobby;
 
+import finalproject.game.DevelopmentHand;
 import finalproject.game.GameState;
 import finalproject.network.GameStateCodec;
 import finalproject.network.LobbyClient;
@@ -20,6 +21,7 @@ public final class LobbyController implements AutoCloseable {
     private boolean ready;
     private String serverError;
     private GameState latestGame;
+    private long handRevision = -1;
 
     public LobbyController(LobbyView view, Runnable gameStarted) {
         this.view = view;
@@ -42,6 +44,20 @@ public final class LobbyController implements AutoCloseable {
         });
         view.onPlaceRoad(edgeId -> {
             if (latestGame != null) send("PLACE_ROAD", Integer.toString(edgeId), Long.toString(latestGame.revision()));
+        });
+        // Development cards: the host checks these with DevelopmentRules.
+        view.onBuyDevelopmentCard(() -> {
+            if (latestGame != null) send("BUY_DEV_CARD", Long.toString(latestGame.revision()));
+        });
+        view.onPlayDevelopmentCard((card, choices) -> {
+            if (latestGame == null) return;
+            List<String> fields = new java.util.ArrayList<>(List.of("PLAY_DEV_CARD", card.name(), Long.toString(latestGame.revision())));
+            choices.forEach(resource -> fields.add(resource.name()));
+            send(fields.toArray(String[]::new));
+        });
+        view.onMoveRobber((tileId, victim) -> {
+            if (latestGame != null) send("MOVE_ROBBER", Integer.toString(tileId), Integer.toString(victim),
+                    Long.toString(latestGame.revision()));
         });
     }
 
@@ -116,7 +132,10 @@ public final class LobbyController implements AutoCloseable {
             case "CHAT" -> view.appendChat(fields.get(1), fields.get(2));
             case "STATE" -> {
                 LobbyState state = LobbyState.fromMessage(fields);
-                if (!state.started()) latestGame = null;
+                if (!state.started()) {
+                    latestGame = null;
+                    handRevision = -1;
+                }
                 ready = state.isReady(playerId);
                 view.render(state, playerId);
             }
@@ -130,6 +149,17 @@ public final class LobbyController implements AutoCloseable {
                     }
                 } catch (IllegalArgumentException e) {
                     view.showStatus("The host sent an invalid game snapshot: " + e.getMessage());
+                }
+            }
+            case "DEV_CARDS" -> {   // only ever our own cards: the host sends each player just theirs
+                try {
+                    long revision = Long.parseLong(fields.get(1));
+                    if (revision >= handRevision) {
+                        handRevision = revision;
+                        view.renderDevelopmentHand(GameStateCodec.decodeHand(fields));
+                    }
+                } catch (IllegalArgumentException e) {
+                    view.showStatus("The host sent invalid development cards: " + e.getMessage());
                 }
             }
             default -> { }
@@ -149,6 +179,7 @@ public final class LobbyController implements AutoCloseable {
         playerId = -1;
         ready = false;
         latestGame = null;
+        handRevision = -1;
         view.reset();
     }
 }

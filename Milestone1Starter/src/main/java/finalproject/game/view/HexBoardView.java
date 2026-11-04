@@ -171,6 +171,27 @@ public class HexBoardView extends StackPane {
         }
     }
 
+    /** Highlights these tiles (moving the robber); clicking one calls onClick with its tile ID. */
+    public void showTileSpots(List<Integer> tileIds, IntConsumer onClick) {
+        clearSpots();
+        if (drawnBoard == null) return;
+        for (int id : tileIds) {
+            Tile tile = tileById(id);
+            Polygon spot = hexShape(tileCenterX(tile.q(), tile.r()), tileCenterY(tile.r()));
+            spot.setId("tile-spot-" + id);
+            spot.setScaleX(0.9);
+            spot.setScaleY(0.9);
+            spot.setFill(Color.web("#fff3c4", 0.18));
+            spot.setStroke(Color.web("#f3cc80"));
+            spot.setStrokeWidth(3);
+            spot.setCursor(Cursor.HAND);
+            spot.setOnMouseEntered(e -> spot.setFill(Color.web("#fff3c4", 0.45)));
+            spot.setOnMouseExited(e -> spot.setFill(Color.web("#fff3c4", 0.18)));
+            spot.setOnMouseClicked(e -> onClick.accept(id));
+            spotLayer.getChildren().add(spot);
+        }
+    }
+
     public void clearSpots() { spotLayer.getChildren().clear(); }
 
     // ---------- drawing ----------
@@ -205,12 +226,16 @@ public class HexBoardView extends StackPane {
             tileLayer.getChildren().add(tileNode(tile.resource(), cx, cy));
             if (tile.number() != 0) tileLayer.getChildren().add(token(tile.number(), cx, cy));
         }
-        // TODO: GameState has no robber position yet. It starts on the desert, so draw it there for now.
-        for (Tile tile : drawnBoard.tiles()) {
-            if (tile.resource() == ResourceType.DESERT) {
-                tileLayer.getChildren().add(robberNode(tileCenterX(tile.q(), tile.r()), tileCenterY(tile.r())));
-            }
+        // With a game snapshot the robber is drawn in drawPieces() wherever it is now.
+        // A board on its own (no game yet) shows it on the desert, where it starts.
+        if (state == null) {
+            Tile desert = tileById(GameState.desertTile(drawnBoard));
+            tileLayer.getChildren().add(robberNode(tileCenterX(desert.q(), desert.r()), tileCenterY(desert.r())));
         }
+    }
+
+    private Tile tileById(int tileId) {
+        return drawnBoard.tiles().stream().filter(t -> t.id() == tileId).findFirst().orElseThrow();
     }
 
     /** Roads and settlements from the current snapshot. */
@@ -226,6 +251,8 @@ public class HexBoardView extends StackPane {
             BoardGraph.Vertex v = graph.vertex(vertexId);
             pieceLayer.getChildren().add(settlementNode(vertexX(v), vertexY(v), player));
         });
+        Tile robberTile = tileById(state.robberTile());
+        pieceLayer.getChildren().add(robberNode(tileCenterX(robberTile.q(), robberTile.r()), tileCenterY(robberTile.r())));
     }
 
     /** Road image stretched along the edge and rotated to match it (plain line if no image). */

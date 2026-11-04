@@ -47,6 +47,29 @@ public record Pieces(Map<Integer, Integer> settlements, Map<Integer, Integer> ro
         return new Pieces(settlements, roads, pendingSettlement, h);
     }
 
+    /** Removes one card for each entry in spent. Throws if the player doesn't have them all. */
+    public Pieces withoutCards(int playerId, List<ResourceType> spent) {
+        List<ResourceType> cards = new ArrayList<>(hand(playerId));
+        for (ResourceType card : spent) {
+            if (!cards.remove(card)) throw new IllegalArgumentException("Not enough resource cards.");
+        }
+        return withHand(playerId, cards);
+    }
+
+    /** Replaces a player's whole hand. */
+    public Pieces withHand(int playerId, List<ResourceType> cards) {
+        Map<Integer, List<ResourceType>> h = new HashMap<>(hands);
+        h.put(playerId, cards);
+        return new Pieces(settlements, roads, pendingSettlement, h);
+    }
+
+    /** True if the player holds at least these cards (duplicates count). */
+    public boolean hasCards(int playerId, List<ResourceType> needed) {
+        List<ResourceType> cards = new ArrayList<>(hand(playerId));
+        for (ResourceType card : needed) if (!cards.remove(card)) return false;
+        return true;
+    }
+
     public List<ResourceType> hand(int playerId) {
         return hands.getOrDefault(playerId, List.of());
     }
@@ -57,8 +80,9 @@ public record Pieces(Map<Integer, Integer> settlements, Map<Integer, Integer> ro
 
     /**
      * A player's victory points, worked out from what they have on the board.
-     * Right now: 1 point per settlement. Add cities (2 each), Longest Road,
-     * Largest Army and VP cards here as those features are built.
+     * Right now: 1 point per settlement. Add cities (2 each) and Longest Road
+     * here as those features are built. Largest Army is added in
+     * GameState.victoryPoints(); VP cards are secret and only shown to their owner.
      * Every laptop gets the same pieces from the host, so every laptop
      * calculates the same score for each player.
      */
