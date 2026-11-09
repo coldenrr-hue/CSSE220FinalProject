@@ -3,13 +3,16 @@ package finalproject.lobby;
 import finalproject.game.DevelopmentCard;
 import finalproject.game.DevelopmentHand;
 import finalproject.game.GameState;
+import finalproject.game.MatchResult;
 import finalproject.game.ResourceType;
 import finalproject.game.view.GameScreen;
+import javafx.animation.FadeTransition;
 import javafx.geometry.Insets;
 import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -29,6 +32,9 @@ public final class LobbyView extends BorderPane {
     private final GameScreen gameScreen = new GameScreen();
     private final Map<Integer, String> playerNames = new HashMap<>();
     private Consumer<Boolean> screenChanged = playing -> { };
+    private Runnable newGame = () -> { };
+    private Runnable leave = () -> { };
+    private MatchResultsView resultsScreen;
     private boolean playing;
 
     public LobbyView() {
@@ -73,9 +79,11 @@ public final class LobbyView extends BorderPane {
     public void onHost(Runnable action) { connection.hostButton.setOnAction(e -> action.run()); }
     public void onJoin(Runnable action) { connection.joinButton.setOnAction(e -> action.run()); }
     public void onLeave(Runnable action) {
+        leave = action;
         connection.leaveButton.setOnAction(e -> action.run());
         gameScreen.onLeave(action);
     }
+    public void onNewGame(Runnable action) { newGame = action; }
     public void onReady(Runnable action) { players.readyButton.setOnAction(e -> action.run()); }
     public void onStart(Runnable action) { players.startButton.setOnAction(e -> action.run()); }
     public void onChat(Consumer<String> action) { chat.onSend(action); }
@@ -84,7 +92,11 @@ public final class LobbyView extends BorderPane {
     public void onRollDice(Runnable action) { gameScreen.onRollDice(action); }
     public void onPlaceSettlement(IntConsumer action) { gameScreen.onPlaceSettlement(action); }
     public void onPlaceRoad(IntConsumer action) { gameScreen.onPlaceRoad(action); }
-    public void showStatus(String value) { status.setText(value); gameScreen.showStatus(value); }
+    public void showStatus(String value) {
+        status.setText(value);
+        gameScreen.showStatus(value);
+        if (resultsScreen != null) resultsScreen.showStatus(value);
+    }
     public void onBuyDevelopmentCard(Runnable action) { gameScreen.onBuyDevelopmentCard(action); }
     public void onPlayDevelopmentCard(BiConsumer<DevelopmentCard, List<ResourceType>> action) {
         gameScreen.onPlayDevelopmentCard(action);
@@ -121,8 +133,19 @@ public final class LobbyView extends BorderPane {
         showStatus(state.currentPlayerId() == playerId ? "Your turn." : "Waiting for " + playerNames.get(state.currentPlayerId()) + ".");
     }
 
+    public void renderResult(MatchResult result, int playerId) {
+        if (resultsScreen != null) return;
+        resultsScreen = new MatchResultsView(result, playerId, playerNames, newGame, leave);
+        setCenter(resultsScreen);
+        FadeTransition reveal = new FadeTransition(Duration.millis(300), resultsScreen);
+        reveal.setFromValue(0);
+        reveal.setToValue(1);
+        reveal.play();
+    }
+
     private void showLobby() {
         if (!playing) return;
+        resultsScreen = null;
         gameScreen.detachChat();
         lobbySidebar.getChildren().add(chat);
         setCenter(lobbyScreen);

@@ -1,0 +1,58 @@
+.match-results, .match-results > .viewport, .results-frame {
+    -fx-background-color: #12202c;
+}
+.results-frame {
+    -fx-background-color: radial-gradient(center 50% 12%, radius 85%, #30454d, #12202c);
+}
+.results-hero {
+    -fx-background-color: linear-gradient(to bottom, #263c47, #192c39);
+    -fx-background-radius: 16;
+    -fx-border-color: #95774d;
+    -fx-border-radius: 16;
+    -fx-padding: 16 24;
+}
+.results-trophy { -fx-fill: #f3cc80; }
+.results-kicker, .results-caption, .results-column {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #b9cbd5;
+}
+.results-kicker { -fx-text-fill: #f3cc80; }
+.results-winner {
+    -fx-font-size: 40px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #fff1d4;
+}
+.results-score { -fx-font-size: 18px; -fx-text-fill: #f3cc80; }
+.results-highlight, .results-table {
+    -fx-background-color: #1d303e;
+    -fx-background-radius: 10;
+    -fx-border-color: #344b59;
+    -fx-border-radius: 10;
+}
+.results-highlight { -fx-padding: 8 12; }
+.results-metric {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #fff1d4;
+}
+.results-table { -fx-padding: 8 10; }
+.results-table .label { -fx-padding: 8 10; }
+.results-winning-row { -fx-background-color: #354449; -fx-background-radius: 6; }
+.results-player, .results-points { -fx-font-weight: bold; }
+.results-points { -fx-text-fill: #f3cc80; }
+.results-cell, .results-note { -fx-text-fill: #d5e6ef; }
+.results-primary, .results-secondary {
+    -fx-background-radius: 7;
+    -fx-padding: 9 20;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+}
+.results-primary { -fx-background-color: #f3cc80; -fx-text-fill: #12202c; }
+.results-primary:hover { -fx-background-color: #ffe4a5; }
+.results-secondary { -fx-background-color: #304757; -fx-text-fill: #e5eff5; }
+.results-secondary:hover { -fx-background-color: #416073; }
+.results-primary:focused, .results-secondary:focused {
+    -fx-border-color: #fff1d4;
+    -fx-border-radius: 7;
+}

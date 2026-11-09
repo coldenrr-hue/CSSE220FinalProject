@@ -31,6 +31,8 @@ public final class LobbyServer implements AutoCloseable {
     // Each player is only ever sent their own hand (see broadcastGame).
     private final List<DevelopmentCard> devDeck = new ArrayList<>();
     private final Map<Integer, DevelopmentHand> devHands = new HashMap<>();
+    private final Map<Integer, Integer> cardsPlayed = new HashMap<>();
+    private MatchResult matchResult;
     private final Random random = new Random();
     private long gameRevision;
     private volatile boolean closed;
@@ -99,12 +101,23 @@ public final class LobbyServer implements AutoCloseable {
     }
 
     private synchronized void command(Peer peer, String[] fields) throws IOException {
-        if (fields.length == 0) return;
-        if (fields[0].startsWith("TRADE_") || fields[0].equals("BANK_TRADE") || fields[0].equals("BUILD")) {
-            playCommand(peer, fields);
-        } else if (fields.length == 2 && fields[0].equals("CHAT")) {
+        if (fields.length == 0 || peers.get(peer.id) != peer) return;
+        if (fields.length == 2 && fields[0].equals("CHAT")) {
             String message = fields[1].strip();
             if (!message.isEmpty() && message.length() <= 300) broadcast("CHAT", peer.name, message);
+        } else if (fields[0].equals("NEW_GAME")) {
+            if (matchResult == null || fields.length != 2 || !fields[1].equals(Long.toString(matchResult.revision()))) {
+                Wire.send(peer.out, "ERROR", "Use the latest match results to start a new game.");
+            } else if (peer.id != 0) {
+                Wire.send(peer.out, "ERROR", "Only the host can start a new game.");
+            } else {
+                resetMatch();
+                snapshot();
+            }
+        } else if (matchResult != null) {
+            Wire.send(peer.out, "ERROR", "The match is over.");
+        } else if (fields[0].startsWith("TRADE_") || fields[0].equals("BANK_TRADE") || fields[0].equals("BUILD")) {
+            playCommand(peer, fields);
         } else if (!started && fields.length == 2 && fields[0].equals("READY")) {
             peer.ready = fields[1].equals("true");
             snapshot();
@@ -214,7 +227,9 @@ public final class LobbyServer implements AutoCloseable {
                     DevelopmentCard card = DevelopmentCard.valueOf(fields[1]);
                     List<ResourceType> choices = new ArrayList<>();
                     for (int i = 3; i < fields.length; i++) choices.add(ResourceType.valueOf(fields[i]));
-                    apply(peer.id, DevelopmentRules.play(game, hand(peer.id), peer.id, card, choices));
+                    DevelopmentRules.Result result = DevelopmentRules.play(game, hand(peer.id), peer.id, card, choices);
+                    cardsPlayed.merge(peer.id, 1, Integer::sum);
+                    apply(peer.id, result);
                 }
                 default -> {
                     if (fields.length != 4) throw new IllegalArgumentException("Pick a tile for the robber.");
@@ -335,10 +350,12 @@ public final class LobbyServer implements AutoCloseable {
      */
     private void broadcastGame() {
         GameState game = currentGame();
+        matchResult = MatchResult.ifWon(game, devHands, cardsPlayed);
         broadcast(GameStateCodec.encode(game));
         for (Peer peer : peers.values()) {
             sendTo(peer, GameStateCodec.encodeHand(game.revision(), hand(peer.id)));
         }
+        if (matchResult != null) broadcast(GameStateCodec.encodeResult(matchResult));
     }
 
     private void sendTo(Peer peer, String... fields) {
@@ -363,7 +380,14 @@ public final class LobbyServer implements AutoCloseable {
     private synchronized void disconnected(Peer peer) {
         if (peers.remove(peer.id) == null || closed) return;
         if (peer.id == 0) { close(); return; }
+        if (matchResult != null) return; // Keep the final standings open for the remaining players.
         // A match cannot continue with a missing player; return everyone to the lobby.
+        resetMatch();
+        broadcast("CHAT", "Lobby", peer.name + " disconnected. Waiting for four ready players.");
+        snapshot();
+    }
+
+    private void resetMatch() {
         started = false;
         board = null;
         turns = null;
@@ -373,9 +397,9 @@ public final class LobbyServer implements AutoCloseable {
         development = DevelopmentState.START;
         devDeck.clear();
         devHands.clear();
+        cardsPlayed.clear();
+        matchResult = null;
         peers.values().forEach(p -> p.ready = false);
-        broadcast("CHAT", "Lobby", peer.name + " disconnected. Waiting for four ready players.");
-        snapshot();
     }
 
     @Override public synchronized void close() {

@@ -87,6 +87,31 @@ public final class GameStateCodec {
         return java.util.Arrays.stream(text.split(",")).map(ResourceType::valueOf).toList();
     }
 
+    public static String[] encodeResult(MatchResult result) {
+        List<String> fields = new ArrayList<>(List.of("MATCH_RESULT", Long.toString(result.revision()),
+                Integer.toString(result.winnerId()), Integer.toString(result.turns())));
+        for (MatchResult.PlayerStats p : result.players()) {
+            fields.addAll(List.of(Integer.toString(p.id()), Integer.toString(p.points()),
+                    Integer.toString(p.cardsPlayed()), Integer.toString(p.knights()),
+                    Integer.toString(p.settlements()), Integer.toString(p.cities()), Integer.toString(p.roads())));
+        }
+        return fields.toArray(String[]::new);
+    }
+
+    public static MatchResult decodeResult(List<String> fields) {
+        if (fields.size() != 32 || !fields.getFirst().equals("MATCH_RESULT"))
+            throw new IllegalArgumentException("Invalid match result");
+        List<MatchResult.PlayerStats> players = new ArrayList<>();
+        for (int i = 4; i < fields.size(); i += 7) {
+            players.add(new MatchResult.PlayerStats(Integer.parseInt(fields.get(i)),
+                    Integer.parseInt(fields.get(i + 1)), Integer.parseInt(fields.get(i + 2)),
+                    Integer.parseInt(fields.get(i + 3)), Integer.parseInt(fields.get(i + 4)),
+                    Integer.parseInt(fields.get(i + 5)), Integer.parseInt(fields.get(i + 6))));
+        }
+        return new MatchResult(Long.parseLong(fields.get(1)), Integer.parseInt(fields.get(2)),
+                Integer.parseInt(fields.get(3)), players);
+    }
+
     /** Private message for ONE player: DEV_CARDS revision ready-cards new-cards ("KNIGHT.MONOPOLY"). */
     public static String[] encodeHand(long revision, DevelopmentHand hand) {
         return new String[]{"DEV_CARDS", Long.toString(revision), encodeDevelopmentCards(hand.ready()), encodeDevelopmentCards(hand.fresh())};

@@ -2,6 +2,7 @@ package finalproject.lobby;
 
 import finalproject.game.DevelopmentHand;
 import finalproject.game.GameState;
+import finalproject.game.MatchResult;
 import finalproject.network.GameStateCodec;
 import finalproject.network.LobbyClient;
 import finalproject.network.LobbyServer;
@@ -30,6 +31,9 @@ public final class LobbyController implements AutoCloseable {
         view.onLeave(() -> { close(); view.showStatus("You left the table."); });
         view.onReady(() -> send("READY", Boolean.toString(!ready)));
         view.onStart(() -> send("START"));
+        view.onNewGame(() -> {
+            if (latestGame != null) send("NEW_GAME", Long.toString(latestGame.revision()));
+        });
         view.onChat(message -> send("CHAT", message));
         view.onEndTurn(() -> {
             if (latestGame != null) send("END_TURN", Long.toString(latestGame.revision()));
@@ -155,6 +159,16 @@ public final class LobbyController implements AutoCloseable {
                     if (latestGame != null && revision == latestGame.revision()) view.renderDevelopmentHand(hand);
                 } catch (IllegalArgumentException e) {
                     view.showStatus("The host sent invalid development cards: " + e.getMessage());
+                }
+            }
+            case "MATCH_RESULT" -> {
+                try {
+                    MatchResult result = GameStateCodec.decodeResult(fields);
+                    if (latestGame != null && result.revision() == latestGame.revision()) {
+                        view.renderResult(result, playerId);
+                    }
+                } catch (IllegalArgumentException e) {
+                    view.showStatus("The host sent invalid match results.");
                 }
             }
             default -> { }
