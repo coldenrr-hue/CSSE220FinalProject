@@ -21,8 +21,16 @@ public class ResourceCard
     {
         //initialize variables
         numResource = 0;
-        numDisplay = new Label(numResource + " + (" + numChange + ")");
+        numDisplay = new Label(numResource + "");
+        numDisplay.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: " + "#12202c" + ";"
+                + "-fx-background-color: " + "#f3cc80" + "; -fx-background-radius: 12; -fx-padding: 1 8 1 8;"
+                + "-fx-border-color: " + "#12202c" + "; -fx-border-radius: 12; -fx-border-width: 2;");
         ImageView cardImage = new ImageView(image);
+<<<<<<< Updated upstream
+=======
+        cardImage.setFitWidth(64);
+        cardImage.setFitHeight(90);
+>>>>>>> Stashed changes
 
         //create card buttons
         Button collectButton = new Button("Collect " + name);
@@ -37,9 +45,33 @@ public class ResourceCard
 
     private void updateDisplay()
     {
-        numDisplay.setText(numResource + " + (" + numChange + ")");
+        int displayNum = numResource + numChange;
+        numDisplay.setText(displayNum + "");
+
+<<<<<<< Updated upstream
+=======
+        //change num color when changes are unconfirmed
+        if (displayNum > numResource)
+        {
+            numDisplay.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: green;"
+                    + "-fx-background-color: " + "#f3cc80" + "; -fx-background-radius: 12; -fx-padding: 1 8 1 8;"
+                    + "-fx-border-color: " + "#12202c" + "; -fx-border-radius: 12; -fx-border-width: 2;");
+        }
+        else if (displayNum < numResource)
+        {
+            numDisplay.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: red;"
+                    + "-fx-background-color: " + "#f3cc80" + "; -fx-background-radius: 12; -fx-padding: 1 8 1 8;"
+                    + "-fx-border-color: " + "#12202c" + "; -fx-border-radius: 12; -fx-border-width: 2;");
+        }
+        else
+        {
+            numDisplay.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: " + "#12202c" + ";"
+                    + "-fx-background-color: " + "#f3cc80" + "; -fx-background-radius: 12; -fx-padding: 1 8 1 8;"
+                    + "-fx-border-color: " + "#12202c" + "; -fx-border-radius: 12; -fx-border-width: 2;");
+        }
     }
 
+>>>>>>> Stashed changes
     private void collect(int amountCollected)
     {
         numChange += amountCollected;
@@ -48,8 +80,12 @@ public class ResourceCard
 
     private void Spend(int amountSpent)
     {
-        numChange -= amountSpent;
-        updateDisplay();
+        //don't allow card count to fall below 0
+        if (numResource + (numChange - amountSpent) >= 0)
+        {
+            numChange -= amountSpent;
+            updateDisplay();
+        }
     }
 
     public void confirmChange()
@@ -63,4 +99,13 @@ public class ResourceCard
     {
         return view;
     }
+<<<<<<< Updated upstream
 }
+=======
+
+    public Label getNumDisplay()
+    {
+        return numDisplay;
+    }
+}
+>>>>>>> Stashed changes
