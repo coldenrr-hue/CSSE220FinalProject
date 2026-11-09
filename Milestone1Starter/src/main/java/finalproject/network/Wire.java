@@ -7,6 +7,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 final class Wire {
+    static final String LOBBY_VERSION = "2";
+
     private Wire() { }
 
     static void send(DataOutputStream out, String... fields) throws IOException {

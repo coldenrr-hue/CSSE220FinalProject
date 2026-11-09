@@ -43,6 +43,12 @@ public final class LobbyIntegrationTest {
             for (Probe p : List.of(host, a, b, c)) p.await(f -> f.get(0).equals("STARTED"));
             List<Probe> players = List.of(host, a, b, c);
             GameState game = sameGame(players);
+            // Each player gets their own (empty) development cards in a separate private message.
+            for (Probe p : players) {
+                List<String> hand = p.await(f -> f.get(0).equals("DEV_CARDS"));
+                if (!GameStateCodec.decodeHand(hand).equals(DevelopmentHand.EMPTY)
+                        || !hand.get(1).equals(Long.toString(game.revision()))) throw new AssertionError("Bad private hand");
+            }
             Board originalBoard = game.board();
             List<Integer> sequence = new ArrayList<>(game.turnOrder());
             List<Integer> reversed = new ArrayList<>(game.turnOrder());
@@ -95,6 +101,16 @@ public final class LobbyIntegrationTest {
                     inactive.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("not your turn"));
                     active.client.send("ROLL_DICE", "invalid");
                     active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("stale"));
+                    inactive.client.send("BUY_DEV_CARD", Long.toString(game.revision()));
+                    inactive.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("not your turn"));
+                    active.client.send("BUY_DEV_CARD", Long.toString(game.revision()));
+                    active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("Roll the dice before buying"));
+                    active.client.send("PLAY_DEV_CARD", "KNIGHT", Long.toString(game.revision()));
+                    active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("don't have"));
+                    active.client.send("PLAY_DEV_CARD", "NOT_A_CARD", Long.toString(game.revision()));
+                    active.await(f -> f.get(0).equals("ERROR"));
+                    active.client.send("MOVE_ROBBER", "0", "-1", Long.toString(game.revision()));
+                    active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("robber"));
                     long before = game.revision();
                     active.client.send("ROLL_DICE", Long.toString(before));
                     game = sameGame(players);

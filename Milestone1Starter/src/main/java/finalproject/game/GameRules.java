@@ -115,13 +115,15 @@ public final class GameRules {
     public static void requireTurn(GameState state, int player) {
         if (state.phase() != GamePhase.PLAYING || state.currentPlayerId() != player || !state.dice().rolled())
             throw new IllegalArgumentException("Wait for your turn and roll before trading or building.");
+        if (state.development().busy())
+            throw new IllegalArgumentException("Finish your development card before trading or building.");
     }
     public static boolean hasResources(PlayerAssets assets, int player, List<ResourceType> cards) {
         List<ResourceType> hand = new ArrayList<>(assets.hand(player));
         for (ResourceType card : cards) if (!hand.remove(card)) return false;
         return true;
     }
-    private static PlayerAssets exchange(PlayerAssets assets, int player, List<ResourceType> give, List<ResourceType> receive) {
+    static PlayerAssets exchange(PlayerAssets assets, int player, List<ResourceType> give, List<ResourceType> receive) {
         if (!hasResources(assets, player, give)) throw new IllegalArgumentException("Not enough resource cards.");
         List<ResourceType> hand = new ArrayList<>(assets.hand(player));
         give.forEach(hand::remove);
@@ -154,6 +156,7 @@ public final class GameRules {
         return state.phase() == GamePhase.PLAYING
                 && player == state.currentPlayerId()
                 && state.dice().rolled()
+                && !state.development().busy()
                 && build.remainingPieces(state.assets(), player) > 0
                 && hasResources(state.assets(), player, build.cost());
     }
@@ -172,10 +175,14 @@ public final class GameRules {
                     && !assets.cities().contains(spot);
             case SETTLEMENT -> isOpenSettlementLocation(graph, assets, spot)
                     && hasOwnRoadAt(graph, assets, player, spot);
-            case ROAD -> graph.isEdge(spot) && !assets.roads().containsKey(spot)
-                    && (canConnectRoadAt(graph, assets, player, graph.edge(spot).a())
-                        || canConnectRoadAt(graph, assets, player, graph.edge(spot).b()));
+            case ROAD -> canConnectRoad(graph, assets, player, spot);
         };
+    }
+
+    static boolean canConnectRoad(BoardGraph graph, PlayerAssets assets, int player, int spot) {
+        return graph.isEdge(spot) && !assets.roads().containsKey(spot)
+                && (canConnectRoadAt(graph, assets, player, graph.edge(spot).a())
+                    || canConnectRoadAt(graph, assets, player, graph.edge(spot).b()));
     }
 
     private static boolean isOpenSettlementLocation(BoardGraph graph, PlayerAssets assets, int vertex) {
@@ -226,6 +233,7 @@ public final class GameRules {
             Map<Integer, Integer> resourcesOwed = new HashMap<>();
             state.assets().settlements().forEach((vertex, player) -> {
                 for (int tile : graph.vertex(vertex).tileIds()) {
+                    if (tile == state.robberTile()) continue;
                     if (graph.tile(tile).resource() == resource && graph.tile(tile).number() == state.dice().total())
                         resourcesOwed.merge(player, state.assets().cities().contains(vertex) ? 2 : 1, Integer::sum);
                 }

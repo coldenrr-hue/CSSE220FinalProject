@@ -100,12 +100,18 @@ public class HexBoardView extends StackPane {
     /** Show a snapshot from the host. The tiles are only redrawn when the board actually changes. */
     public void render(GameState newState) {
         state = newState;
-        render(newState == null ? null : newState.board());
+        renderTerrain(newState == null ? null : newState.board());
         drawPieces();
     }
 
     /** Show just the terrain, without game pieces. */
     public void render(Board board) {
+        state = null;
+        renderTerrain(board);
+        drawPieces();
+    }
+
+    private void renderTerrain(Board board) {
         if (board != null && board.equals(drawnBoard)) return;
         drawnBoard = board;
         redraw();
@@ -182,6 +188,27 @@ public class HexBoardView extends StackPane {
         }
     }
 
+    /** Highlights these tiles (moving the robber); clicking one calls onClick with its tile ID. */
+    public void showTileSpots(List<Integer> tileIds, IntConsumer onClick) {
+        clearSpots();
+        if (drawnBoard == null) return;
+        for (int id : tileIds) {
+            Tile tile = tileById(id);
+            Polygon spot = hexShape(tileCenterX(tile.q(), tile.r()), tileCenterY(tile.r()));
+            spot.setId("tile-spot-" + id);
+            spot.setScaleX(0.9);
+            spot.setScaleY(0.9);
+            spot.setFill(Color.web("#fff3c4", 0.18));
+            spot.setStroke(Color.web("#f3cc80"));
+            spot.setStrokeWidth(3);
+            spot.setCursor(Cursor.HAND);
+            spot.setOnMouseEntered(e -> spot.setFill(Color.web("#fff3c4", 0.45)));
+            spot.setOnMouseExited(e -> spot.setFill(Color.web("#fff3c4", 0.18)));
+            spot.setOnMouseClicked(e -> onClick.accept(id));
+            spotLayer.getChildren().add(spot);
+        }
+    }
+
     public void clearSpots() { spotLayer.getChildren().clear(); }
 
     // ---------- drawing ----------
@@ -217,12 +244,10 @@ public class HexBoardView extends StackPane {
             if (tile.number() != 0) tileLayer.getChildren().add(token(tile.number(), cx, cy));
         }
         drawHarbors();
-        // TODO: GameState has no robber position yet. It starts on the desert, so draw it there for now.
-        for (Tile tile : drawnBoard.tiles()) {
-            if (tile.resource() == ResourceType.DESERT) {
-                tileLayer.getChildren().add(robberNode(tileCenterX(tile.q(), tile.r()), tileCenterY(tile.r())));
-            }
-        }
+    }
+
+    private Tile tileById(int tileId) {
+        return drawnBoard.tiles().stream().filter(t -> t.id() == tileId).findFirst().orElseThrow();
     }
 
     /** Scalable dock illustrations: wooden piers connect both eligible coastal corners. */
@@ -276,7 +301,11 @@ public class HexBoardView extends StackPane {
     /** Roads and settlements from the current snapshot. */
     private void drawPieces() {
         pieceLayer.getChildren().clear();
-        if (state == null || drawnBoard == null) return;
+        if (drawnBoard == null) return;
+        if (state == null) {
+            drawRobber(GameState.desertTile(drawnBoard));
+            return;
+        }
         BoardGraph graph = BoardGraph.of(drawnBoard);
         PlayerAssets pieces = state.assets();
 
@@ -297,6 +326,12 @@ public class HexBoardView extends StackPane {
                 }
             } else pieceLayer.getChildren().add(settlementNode(vertexX(v), vertexY(v), player));
         });
+        drawRobber(state.robberTile());
+    }
+
+    private void drawRobber(int tileId) {
+        Tile tile = tileById(tileId);
+        pieceLayer.getChildren().add(robberNode(tileCenterX(tile.q(), tile.r()), tileCenterY(tile.r())));
     }
 
     /** Road image stretched along the edge and rotated to match it (plain line if no image). */

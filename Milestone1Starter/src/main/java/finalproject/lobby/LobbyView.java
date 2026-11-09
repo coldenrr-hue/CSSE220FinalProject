@@ -1,12 +1,17 @@
 package finalproject.lobby;
 
+import finalproject.game.DevelopmentCard;
+import finalproject.game.DevelopmentHand;
 import finalproject.game.GameState;
+import finalproject.game.ResourceType;
 import finalproject.game.view.GameScreen;
 import javafx.geometry.Insets;
 import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import java.util.HashMap;
@@ -80,6 +85,13 @@ public final class LobbyView extends BorderPane {
     public void onPlaceSettlement(IntConsumer action) { gameScreen.onPlaceSettlement(action); }
     public void onPlaceRoad(IntConsumer action) { gameScreen.onPlaceRoad(action); }
     public void showStatus(String value) { status.setText(value); gameScreen.showStatus(value); }
+    public void onBuyDevelopmentCard(Runnable action) { gameScreen.onBuyDevelopmentCard(action); }
+    public void onPlayDevelopmentCard(BiConsumer<DevelopmentCard, List<ResourceType>> action) {
+        gameScreen.onPlayDevelopmentCard(action);
+    }
+    public void onMoveRobber(BiConsumer<Integer, Integer> action) { gameScreen.onMoveRobber(action); }
+    /** This player's own development cards (nobody else's are ever received). */
+    public void renderDevelopmentHand(DevelopmentHand hand) { gameScreen.renderDevelopmentHand(hand); }
     public void showAddress(String value) { connection.showAddress(value); }
     public void appendChat(String name, String message) { chat.append(name, message); }
     public void clearChat() { chat.clear(); }

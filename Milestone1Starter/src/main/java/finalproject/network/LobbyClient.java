@@ -21,7 +21,7 @@ public final class LobbyClient implements AutoCloseable {
             socket.connect(new InetSocketAddress(address, port), 4000);
             socket.setTcpNoDelay(true);
             out = new DataOutputStream(socket.getOutputStream());
-            Wire.send(out, "JOIN", "1", name, token);
+            Wire.send(out, "JOIN", Wire.LOBBY_VERSION, name, token);
         } catch (IOException | RuntimeException e) {
             try { socket.close(); } catch (IOException ignored) { }
             sender.shutdownNow();

@@ -25,6 +25,13 @@ public final class LobbyServer implements AutoCloseable {
     private final Dice die = new Dice();
     private DiceResult dice = DiceResult.NONE;
     private TradeOffer offer;
+    private int robberTile;
+    private DevelopmentState development = DevelopmentState.START;
+    // Secret: the deck order and every player's development cards stay on the host.
+    // Each player is only ever sent their own hand (see broadcastGame).
+    private final List<DevelopmentCard> devDeck = new ArrayList<>();
+    private final Map<Integer, DevelopmentHand> devHands = new HashMap<>();
+    private final Random random = new Random();
     private long gameRevision;
     private volatile boolean closed;
 
@@ -55,7 +62,7 @@ public final class LobbyServer implements AutoCloseable {
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
             String[] hello = Wire.read(in);
             synchronized (this) {
-                if (hello.length != 4 || !hello[0].equals("JOIN") || !hello[1].equals("1")) {
+                if (hello.length != 4 || !hello[0].equals("JOIN") || !hello[1].equals(Wire.LOBBY_VERSION)) {
                     Wire.send(out, "ERROR", "Incompatible lobby protocol.");
                     return;
                 }
@@ -103,11 +110,15 @@ public final class LobbyServer implements AutoCloseable {
             snapshot();
         } else if (!started && fields.length == 1 && fields[0].equals("START") && peer.id == 0) {
             if (peers.size() == 4 && peers.values().stream().allMatch(p -> p.ready)) {
-                Random random = new Random();
                 board = BoardGenerator.generate(random);
                 turns = new TurnManager(new ArrayList<>(peers.keySet()), random);
                 assets = PlayerAssets.EMPTY;
                 dice = DiceResult.NONE;
+                robberTile = GameState.desertTile(board);
+                development = DevelopmentState.START;
+                devDeck.clear();
+                devDeck.addAll(DevelopmentRules.shuffledDeck(random));
+                devHands.clear();
                 gameRevision++;
                 started = true;
                 snapshot();
@@ -127,8 +138,14 @@ public final class LobbyServer implements AutoCloseable {
                 Wire.send(peer.out, "ERROR", "During setup your turn ends when you place your road.");
             } else if (!dice.rolled()) {
                 Wire.send(peer.out, "ERROR", "Roll the dice before ending your turn.");
+            } else if (development.busy()) {
+                Wire.send(peer.out, "ERROR", development.movingRobber()
+                        ? "Move the robber before ending your turn." : "Place your free roads before ending your turn.");
             } else {
                 offer = null;
+                // Cards bought this turn become playable on this player's next turn.
+                devHands.put(peer.id, hand(peer.id).endTurn());
+                development = development.nextTurn();
                 turns.advance();
                 dice = DiceResult.NONE;
                 gameRevision++;
@@ -145,13 +162,86 @@ public final class LobbyServer implements AutoCloseable {
                 Wire.send(peer.out, "ERROR", "That roll request is stale. Use the latest game state.");
             } else if (dice.rolled()) {
                 Wire.send(peer.out, "ERROR", "You have already rolled this turn.");
+            } else if (development.busy()) {
+                Wire.send(peer.out, "ERROR", "Finish your development card before rolling.");
             } else {
                 dice = new DiceResult(die.roll(), die.roll());
                 assets = GameRules.collectDiceResources(currentGame());
                 gameRevision++;
                 broadcastGame();
             }
+        } else if (fields[0].equals("BUY_DEV_CARD") || fields[0].equals("PLAY_DEV_CARD")
+                || fields[0].equals("MOVE_ROBBER")) {
+            developmentCommand(peer, fields);
         }
+    }
+
+    /**
+     * BUY_DEV_CARD <revision>
+     * PLAY_DEV_CARD <card> <revision> [resource] [resource]   (Year of Plenty: 2, Monopoly: 1)
+     * MOVE_ROBBER <tile> <victim or -1> <revision>            (after a Knight)
+     */
+    private void developmentCommand(Peer peer, String[] fields) throws IOException {
+        int revisionField = switch (fields[0]) {
+            case "BUY_DEV_CARD" -> 1;
+            case "PLAY_DEV_CARD" -> 2;
+            default -> 3;
+        };
+        if (!started || turns == null) {
+            Wire.send(peer.out, "ERROR", "There is no active game.");
+            return;
+        }
+        if (peer.id != turns.currentPlayerId()) {
+            Wire.send(peer.out, "ERROR", "It is not your turn.");
+            return;
+        }
+        if (fields.length <= revisionField || !fields[revisionField].equals(Long.toString(gameRevision))) {
+            Wire.send(peer.out, "ERROR", "That move is stale. Use the latest game state.");
+            return;
+        }
+        try {
+            GameState game = currentGame();
+            switch (fields[0]) {
+                case "BUY_DEV_CARD" -> {
+                    if (fields.length != 2) throw new IllegalArgumentException("Invalid development card purchase.");
+                    if (devDeck.isEmpty()) throw new IllegalArgumentException("There are no development cards left.");
+                    DevelopmentRules.Result result = DevelopmentRules.buy(game, hand(peer.id), peer.id, devDeck.getLast());
+                    devDeck.removeLast();
+                    apply(peer.id, result);
+                }
+                case "PLAY_DEV_CARD" -> {
+                    if (fields.length > 5) throw new IllegalArgumentException("Too many resource choices.");
+                    DevelopmentCard card = DevelopmentCard.valueOf(fields[1]);
+                    List<ResourceType> choices = new ArrayList<>();
+                    for (int i = 3; i < fields.length; i++) choices.add(ResourceType.valueOf(fields[i]));
+                    apply(peer.id, DevelopmentRules.play(game, hand(peer.id), peer.id, card, choices));
+                }
+                default -> {
+                    if (fields.length != 4) throw new IllegalArgumentException("Pick a tile for the robber.");
+                    GameState moved = DevelopmentRules.moveRobber(game, peer.id,
+                            Integer.parseInt(fields[1]), Integer.parseInt(fields[2]), random);
+                    apply(peer.id, new DevelopmentRules.Result(moved, hand(peer.id)));
+                }
+            }
+        } catch (IllegalArgumentException e) {   // rule problems, unknown card/resource names, bad numbers
+            Wire.send(peer.out, "ERROR", e.getMessage() == null ? "That move isn't allowed." : e.getMessage());
+        }
+    }
+
+    private DevelopmentHand hand(int playerId) {
+        return devHands.getOrDefault(playerId, DevelopmentHand.EMPTY);
+    }
+
+    /** Keeps the host's copy of a rules result and sends it out. */
+    private void apply(int playerId, DevelopmentRules.Result result) {
+        GameState next = result.state();
+        assets = next.assets();
+        offer = null;
+        robberTile = next.robberTile();
+        development = next.development();
+        devHands.put(playerId, result.hand());
+        gameRevision++;
+        broadcastGame();
     }
 
     /** Setup placements: PLACE_SETTLEMENT <vertex> <revision> or PLACE_ROAD <edge> <revision>. */
@@ -171,10 +261,15 @@ public final class LobbyServer implements AutoCloseable {
         try {
             int spot = Integer.parseInt(fields[1]);
             GameState game = currentGame();
-            if (!GameRules.isSetup(game)) {
-                assets = GameRules.build(game, peer.id, fields[0].equals("PLACE_SETTLEMENT") ? GameRules.Build.SETTLEMENT : GameRules.Build.ROAD, spot);
+            boolean settlement = fields[0].equals("PLACE_SETTLEMENT");
+            if (!settlement && development.freeRoads() > 0) {
+                GameState placed = DevelopmentRules.placeFreeRoad(game, peer.id, spot);
+                assets = placed.assets();
+                development = placed.development();
+            } else if (!GameRules.isSetup(game)) {
+                assets = GameRules.build(game, peer.id, settlement ? GameRules.Build.SETTLEMENT : GameRules.Build.ROAD, spot);
                 offer = null;
-            } else if (fields[0].equals("PLACE_SETTLEMENT")) {
+            } else if (settlement) {
                 assets = GameRules.placeSetupSettlement(game, peer.id, spot).assets();
             } else {
                 assets = GameRules.placeSetupRoad(game, peer.id, spot).assets();
@@ -231,11 +326,24 @@ public final class LobbyServer implements AutoCloseable {
 
     private GameState currentGame() {
         return new GameState(board, turns.order(), turns.currentPlayerId(),
-                turns.phase(), turns.turnNumber(), gameRevision, assets, dice, offer);
+                turns.phase(), turns.turnNumber(), gameRevision, assets, dice, offer, robberTile, development);
     }
 
+    /**
+     * Everyone gets the same public snapshot. Then each player gets a DEV_CARDS
+     * message with ONLY their own development cards, so nobody can see anyone else's.
+     */
     private void broadcastGame() {
-        broadcast(GameStateCodec.encode(currentGame()));
+        GameState game = currentGame();
+        broadcast(GameStateCodec.encode(game));
+        for (Peer peer : peers.values()) {
+            sendTo(peer, GameStateCodec.encodeHand(game.revision(), hand(peer.id)));
+        }
+    }
+
+    private void sendTo(Peer peer, String... fields) {
+        try { Wire.send(peer.out, fields); }
+        catch (IOException e) { try { peer.socket.close(); } catch (IOException ignored) { } }
     }
 
     private void snapshot() {
@@ -249,10 +357,7 @@ public final class LobbyServer implements AutoCloseable {
     }
 
     private void broadcast(String... fields) {
-        for (Peer peer : peers.values()) {
-            try { Wire.send(peer.out, fields); }
-            catch (IOException e) { try { peer.socket.close(); } catch (IOException ignored) { } }
-        }
+        for (Peer peer : peers.values()) sendTo(peer, fields);
     }
 
     private synchronized void disconnected(Peer peer) {
@@ -265,6 +370,9 @@ public final class LobbyServer implements AutoCloseable {
         assets = PlayerAssets.EMPTY;
         offer = null;
         dice = DiceResult.NONE;
+        development = DevelopmentState.START;
+        devDeck.clear();
+        devHands.clear();
         peers.values().forEach(p -> p.ready = false);
         broadcast("CHAT", "Lobby", peer.name + " disconnected. Waiting for four ready players.");
         snapshot();

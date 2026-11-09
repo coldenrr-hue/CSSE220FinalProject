@@ -76,10 +76,7 @@ public record PlayerAssets(Map<Integer, Integer> settlements, Map<Integer, Integ
 
     /**
      * A player's victory points, worked out from what they have on the board.
-     * One point per settlement and two per city. Longest Road, Largest Army
-     * and VP cards will be included when those features are built.
-     * Every laptop gets the same pieces from the host, so every laptop
-     * calculates the same score for each player.
+     * One point per settlement and two per city.
      */
     public int victoryPoints(int playerId) {
         return settlementCount(playerId) + 2 * cityCount(playerId);
