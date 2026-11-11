@@ -57,16 +57,21 @@ desert; it is decorative. Starting resources from the second settlement work.
 From this folder, with Maven and Java 21:
 
 ```text
-mvn test-compile
-java -ea -cp "target/classes;target/test-classes" finalproject.game.GameModelTest
-java -ea -cp "target/classes;target/test-classes" finalproject.game.SetupRulesTest
-java -ea -cp "target/classes;target/test-classes" finalproject.network.LobbyIntegrationTest
+mvn test
 ```
 
-On macOS/Linux use `:` instead of `;` in the classpaths. These are standalone
-checks; `mvn test` alone does not execute them. The socket test plays a complete
-four-player setup followed by four dice turns, checks invalid/stale moves and
-rolls, and verifies disconnect/restart behavior.
+The tests are JUnit 5, so you can also run them from IntelliJ (right-click
+`src/test/java` → Run 'All Tests'). `DiceAnimationTest` opens a window for about
+12 seconds; skip it on a machine without a display with
+`mvn test -DexcludedGroups=ui`.
+
+- `GameModelTest`: board generation, turn order, tiles, dice, game state.
+- `SetupRulesTest`: settlement/road placement, distance rule, starting resources.
+- `DevelopmentRulesTest`: buying and playing every development card, robber, Largest Army.
+- `GameStateCodecTest`, `WireTest`: what goes over the network decodes exactly.
+- `LobbyIntegrationTest`: real sockets with four clients: lobby rules, chat, a
+  full setup plus four dice turns, invalid/stale moves, disconnect/restart.
+- `DiceTest`, `DiceAnimationTest`: dice values and the roll animation.
 
 ## Integration choices
 
