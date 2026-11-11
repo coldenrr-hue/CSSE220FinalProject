@@ -34,9 +34,12 @@ Artwork lives in `src/main/resources`: `tiles/`, `board/`, `pieces/`, `cards/`,
 `RoseDice6.png`. Terrain names are not drawn over the tiles. The number tokens
 remain visible. Resource-card hands are currently public in the shared prototype.
 
-## Remaining work
+## Awards and the robber
 
-Longest Road still needs to be implemented. On a seven, the bank produces no
+Longest Road and Largest Army are each worth two victory points. The illustrated
+cards appear beside their holders during the match and in the final standings.
+
+On a seven, the bank produces no
 resources. Each player with seven or more resource cards chooses half to discard
 (rounded down). Then the roller moves the robber and steals a random resource
 card from an eligible opponent if one is available.

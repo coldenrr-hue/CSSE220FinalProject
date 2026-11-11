@@ -713,11 +713,11 @@ public final class GameScreen extends BorderPane {
                     + pieces.roadCount(id) + " roads   /   " + pieces.cityCount(id) + " cities", 12, TEXT, false);
             int devCount = dev.cardCount(id);
             Label devDetail = label(devCount + " dev card" + (devCount == 1 ? "" : "s") + "   ·   "
-                    + dev.knights(id) + " knight" + (dev.knights(id) == 1 ? "" : "s")
-                    + (dev.largestArmy() == id ? "   ·   Largest Army" : ""), 12,
-                    dev.largestArmy() == id ? GOLD : TEXT, dev.largestArmy() == id);
+                    + dev.knights(id) + " knight" + (dev.knights(id) == 1 ? "" : "s"), 12, TEXT, false);
 
             VBox row = new VBox(3, top, detail, devDetail);
+            HBox awards = AwardCards.forPlayer(state, id);
+            if (!awards.getChildren().isEmpty()) row.getChildren().add(awards);
             row.setStyle("-fx-padding: 9; -fx-background-radius: 8; -fx-background-color: "
                     + (current ? HIGHLIGHT : ROW) + "; -fx-border-color: " + SEAT_COLORS[id]
                     + "; -fx-border-width: 0 0 0 4;");

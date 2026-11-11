@@ -30,6 +30,7 @@ public final class LobbyServer implements AutoCloseable {
     private DiceResult dice = DiceResult.NONE;
     private TradeOffer offer;
     private int robberTile;
+    private int longestRoadHolder = -1;
     private SevenResolution seven = SevenResolution.NONE;
     private DevelopmentState development = DevelopmentState.START;
     // Secret: the deck order and every player's development cards stay on the host.
@@ -375,7 +376,8 @@ public final class LobbyServer implements AutoCloseable {
 
     private GameState currentGame() {
         return new GameState(board, turns.order(), turns.currentPlayerId(),
-                turns.phase(), turns.turnNumber(), gameRevision, assets, dice, offer, robberTile, development, seven);
+                turns.phase(), turns.turnNumber(), gameRevision, assets, dice, offer, robberTile, development, seven,
+                longestRoadHolder);
     }
 
     /**
@@ -383,6 +385,9 @@ public final class LobbyServer implements AutoCloseable {
      * message with ONLY their own development cards, so nobody can see anyone else's.
      */
     private void broadcastGame() {
+        if (turns.phase() == GamePhase.PLAYING) {
+            longestRoadHolder = LongestRoadRules.holder(BoardGraph.of(board), assets, turns.order(), longestRoadHolder);
+        }
         GameState game = currentGame();
         matchResult = MatchResult.ifWon(game, devHands, cardsPlayed);
         broadcast(GameStateCodec.encode(game));
@@ -430,6 +435,7 @@ public final class LobbyServer implements AutoCloseable {
         dice = DiceResult.NONE;
         development = DevelopmentState.START;
         seven = SevenResolution.NONE;
+        longestRoadHolder = -1;
         devDeck.clear();
         devHands.clear();
         cardsPlayed.clear();

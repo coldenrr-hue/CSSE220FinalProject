@@ -165,7 +165,7 @@ public final class LobbyController implements AutoCloseable {
                 try {
                     MatchResult result = GameStateCodec.decodeResult(fields);
                     if (latestGame != null && result.revision() == latestGame.revision()) {
-                        view.renderResult(result, playerId);
+                        view.renderResult(result, latestGame, playerId);
                     }
                 } catch (IllegalArgumentException e) {
                     view.showStatus("The host sent invalid match results.");

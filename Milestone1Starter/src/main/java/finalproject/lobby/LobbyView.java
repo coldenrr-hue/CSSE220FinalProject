@@ -133,9 +133,9 @@ public final class LobbyView extends BorderPane {
         showStatus(state.currentPlayerId() == playerId ? "Your turn." : "Waiting for " + playerNames.get(state.currentPlayerId()) + ".");
     }
 
-    public void renderResult(MatchResult result, int playerId) {
+    public void renderResult(MatchResult result, GameState game, int playerId) {
         if (resultsScreen != null) return;
-        resultsScreen = new MatchResultsView(result, playerId, playerNames, newGame, leave);
+        resultsScreen = new MatchResultsView(result, game, playerId, playerNames, newGame, leave);
         setCenter(resultsScreen);
         FadeTransition reveal = new FadeTransition(Duration.millis(300), resultsScreen);
         reveal.setFromValue(0);

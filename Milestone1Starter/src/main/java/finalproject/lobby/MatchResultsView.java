@@ -1,6 +1,8 @@
 package finalproject.lobby;
 
+import finalproject.game.GameState;
 import finalproject.game.MatchResult;
+import finalproject.game.view.AwardCards;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -23,7 +25,7 @@ final class MatchResultsView extends ScrollPane {
     private static final String[] SEAT_COLORS = {"#e37663", "#72b4e2", "#e6bb59", "#a4c395"};
     private final Label status = label("", "results-note");
 
-    MatchResultsView(MatchResult result, int localPlayer, Map<Integer, String> names,
+    MatchResultsView(MatchResult result, GameState game, int localPlayer, Map<Integer, String> names,
                      Runnable newGame, Runnable leave) {
         getStylesheets().add(Objects.requireNonNull(getClass().getResource("/styles/results.css")).toExternalForm());
         getStyleClass().add("match-results");
@@ -69,7 +71,7 @@ final class MatchResultsView extends ScrollPane {
         status.visibleProperty().bind(status.textProperty().isNotEmpty());
         status.managedProperty().bind(status.visibleProperty());
 
-        VBox panel = new VBox(12, hero, highlights, standings(result, localPlayer, names), hint, buttons, status);
+        VBox panel = new VBox(12, hero, highlights, standings(result, game, localPlayer, names), hint, buttons, status);
         panel.setAlignment(Pos.CENTER);
         panel.setMaxWidth(880);
         panel.setMaxHeight(Region.USE_PREF_SIZE);
@@ -91,7 +93,7 @@ final class MatchResultsView extends ScrollPane {
         return tile;
     }
 
-    private static GridPane standings(MatchResult result, int localPlayer, Map<Integer, String> names) {
+    private static GridPane standings(MatchResult result, GameState game, int localPlayer, Map<Integer, String> names) {
         GridPane grid = new GridPane();
         grid.getStyleClass().add("results-table");
         String[] headings = {"PLAYER", "POINTS", "DEV PLAYED", "KNIGHTS", "SETTLEMENTS", "CITIES", "ROADS"};
@@ -109,7 +111,12 @@ final class MatchResultsView extends ScrollPane {
                 grid.add(band, 0, row, headings.length, 1);
             }
             String name = names.getOrDefault(p.id(), "Player " + (p.id() + 1));
-            Label player = addCell(grid, name + (p.id() == localPlayer ? " · You" : ""), "results-player", 0, row);
+            Label player = label(name + (p.id() == localPlayer ? " · You" : ""), "results-player");
+            VBox playerCell = new VBox(4, player);
+            playerCell.setAlignment(Pos.CENTER_LEFT);
+            HBox awards = AwardCards.forPlayer(game, p.id());
+            if (!awards.getChildren().isEmpty()) playerCell.getChildren().add(awards);
+            grid.add(playerCell, 0, row);
             player.setStyle("-fx-text-fill: " + SEAT_COLORS[p.id()] + ";");
             int[] values = {p.points(), p.cardsPlayed(), p.knights(), p.settlements(), p.cities(), p.roads()};
             for (int col = 0; col < values.length; col++) {

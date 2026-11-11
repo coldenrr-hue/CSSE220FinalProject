@@ -7,12 +7,12 @@ import java.util.HashSet;
 
 /**
  * An immutable match snapshot shared by all clients. It contains the board, turn, pieces,
- * resource hands, dice, active trade, robber, pending discards, and public development-card
- * state. The revision identifies the state a command was based on.
+ * resource hands, dice, active trade, robber, pending discards, public development-card
+ * state, and the Longest Road holder. The revision identifies the state a command was based on.
  */
 public record GameState(Board board, List<Integer> turnOrder, int currentPlayerId,
                         GamePhase phase, int turnNumber, long revision, PlayerAssets assets, DiceResult dice, TradeOffer offer,
-                        int robberTile, DevelopmentState development, SevenResolution seven) {
+                        int robberTile, DevelopmentState development, SevenResolution seven, int longestRoadHolder) {
     public GameState {
         Objects.requireNonNull(board);
         Objects.requireNonNull(phase);
@@ -25,9 +25,19 @@ public record GameState(Board board, List<Integer> turnOrder, int currentPlayerI
                 || !turnOrder.contains(currentPlayerId) || turnNumber < 0 || revision < 0) {
             throw new IllegalArgumentException("Invalid turn state");
         }
+        if (longestRoadHolder != -1 && !turnOrder.contains(longestRoadHolder)) {
+            throw new IllegalArgumentException("Invalid Longest Road holder");
+        }
         if (board.tiles().stream().noneMatch(t -> t.id() == robberTile)) {
             throw new IllegalArgumentException("The robber must be on a tile");
         }
+    }
+
+    public GameState(Board board, List<Integer> turnOrder, int currentPlayerId,
+                     GamePhase phase, int turnNumber, long revision, PlayerAssets assets, DiceResult dice,
+                     TradeOffer offer, int robberTile, DevelopmentState development, SevenResolution seven) {
+        this(board, turnOrder, currentPlayerId, phase, turnNumber, revision, assets, dice, offer,
+                robberTile, development, seven, -1);
     }
 
     public GameState(Board board, List<Integer> turnOrder, int currentPlayerId,
@@ -79,20 +89,23 @@ public record GameState(Board board, List<Integer> turnOrder, int currentPlayerI
     GameState with(PlayerAssets newAssets, int newRobberTile, DevelopmentState newDevelopment,
                    SevenResolution newSeven) {
         return new GameState(board, turnOrder, currentPlayerId, phase, turnNumber, revision + 1, newAssets, dice, offer,
-                newRobberTile, newDevelopment, newSeven);
+                newRobberTile, newDevelopment, newSeven, longestRoadHolder);
     }
 
     /** Same assets, new turn info (use after TurnManager.advance()), next revision. */
     public GameState withTurn(TurnManager turns) {
         return new GameState(board, turnOrder, turns.currentPlayerId(), turns.phase(),
-                turns.turnNumber(), revision + 1, assets, DiceResult.NONE, null, robberTile, development.nextTurn());
+                turns.turnNumber(), revision + 1, assets, DiceResult.NONE, null, robberTile, development.nextTurn(),
+                SevenResolution.NONE, longestRoadHolder);
     }
 
     /**
-     * Victory points everyone can see: buildings plus Largest Army.
+     * Victory points everyone can see: buildings plus Longest Road and Largest Army.
      * Victory point cards are secret, so they are added only on the owner's own screen.
      */
     public int victoryPoints(int playerId) {
-        return assets.victoryPoints(playerId) + (development.largestArmy() == playerId ? 2 : 0);
+        return assets.victoryPoints(playerId)
+                + (longestRoadHolder == playerId ? 2 : 0)
+                + (development.largestArmy() == playerId ? 2 : 0);
     }
 }

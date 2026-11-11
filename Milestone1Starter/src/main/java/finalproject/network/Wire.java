@@ -11,7 +11,7 @@ import java.util.Base64;
  * clients.
  */
 final class Wire {
-    static final String LOBBY_VERSION = "5";
+    static final String LOBBY_VERSION = "6";
 
     private Wire() { }
 
