@@ -6,6 +6,7 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.IntSupplier;
 
 /** Host-authoritative four-seat lobby. Slot zero belongs to the host's client. */
 public final class LobbyServer implements AutoCloseable {
@@ -22,7 +23,7 @@ public final class LobbyServer implements AutoCloseable {
     private Board board;
     private TurnManager turns;
     private PlayerAssets assets = PlayerAssets.EMPTY;
-    private final Dice die = new Dice();
+    private final IntSupplier rollDie;
     private DiceResult dice = DiceResult.NONE;
     private TradeOffer offer;
     private int robberTile;
@@ -39,6 +40,11 @@ public final class LobbyServer implements AutoCloseable {
     private volatile boolean closed;
 
     public LobbyServer(int port) throws IOException {
+        this(port, new Dice()::roll);
+    }
+
+    LobbyServer(int port, IntSupplier rollDie) throws IOException {
+        this.rollDie = Objects.requireNonNull(rollDie);
         listener = new ServerSocket(port);
         workers.execute(this::acceptLoop);
     }
@@ -181,7 +187,7 @@ public final class LobbyServer implements AutoCloseable {
             } else if (development.busy()) {
                 Wire.send(peer.out, "ERROR", "Finish your development card before rolling.");
             } else {
-                dice = new DiceResult(die.roll(), die.roll());
+                dice = new DiceResult(rollDie.getAsInt(), rollDie.getAsInt());
                 if (dice.total() == 7) {
                     seven = SevenResolution.start(currentGame());
                 } else {

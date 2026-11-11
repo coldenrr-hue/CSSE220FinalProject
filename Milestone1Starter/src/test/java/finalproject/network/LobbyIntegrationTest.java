@@ -9,7 +9,9 @@ import java.util.function.Predicate;
 public final class LobbyIntegrationTest {
     public static void main(String[] args) throws Exception {
         List<Probe> opened = new ArrayList<>();
-        try (LobbyServer server = new LobbyServer(0)) {
+        // Force a seven on the first turn, followed by ordinary production rolls.
+        PrimitiveIterator.OfInt dice = java.util.stream.IntStream.of(3, 4, 3, 3, 3, 3, 3, 3).iterator();
+        try (LobbyServer server = new LobbyServer(0, dice::nextInt)) {
             Probe host = open(opened, server, "Host", server.hostToken());
             host.await(f -> f.get(0).equals("WELCOME") && f.get(1).equals("0"));
             Probe duplicate = open(opened, server, "host", "");
@@ -120,6 +122,7 @@ public final class LobbyIntegrationTest {
                     active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("stale"));
                     active.client.send("ROLL_DICE", Long.toString(game.revision()));
                     active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("already rolled"));
+                    if (step == 8) game = resolveFirstSeven(players, active, inactive, game);
                     active.client.send("PLACE_SETTLEMENT", "0", Long.toString(game.revision()));
                     active.await(f -> f.get(0).equals("ERROR"));
                     if (!game.assets().hand(currentId).isEmpty()) {
@@ -183,6 +186,36 @@ public final class LobbyIntegrationTest {
         } finally {
             for (Probe p : opened) p.client.close();
         }
+    }
+
+    private static GameState resolveFirstSeven(List<Probe> players, Probe active, Probe inactive,
+                                               GameState game) throws Exception {
+        if (!game.seven().readyToMoveRobber()) throw new AssertionError("The seven did not activate the robber");
+        String revision = Long.toString(game.revision());
+        active.client.send("END_TURN", revision);
+        active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("Resolve the seven"));
+        inactive.client.send("DISCARD", "FOREST", Long.toString(game.seven().rollRevision()));
+        inactive.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("Discard exactly 0"));
+
+        int tile = -1;
+        int victim = -1;
+        for (int candidate : DevelopmentRules.robberTiles(game)) {
+            List<Integer> victims = DevelopmentRules.victims(game, active.id, candidate);
+            if (!victims.isEmpty()) {
+                tile = candidate;
+                victim = victims.getFirst();
+                break;
+            }
+        }
+        if (victim < 0) throw new AssertionError("Expected a victim with starting resources");
+        active.client.send("MOVE_ROBBER", Integer.toString(tile), Integer.toString(victim), revision);
+        GameState next = sameGame(players);
+        if (next.seven().active() || next.robberTile() != tile
+                || next.assets().hand(active.id).size() != game.assets().hand(active.id).size() + 1
+                || next.assets().hand(victim).size() != game.assets().hand(victim).size() - 1) {
+            throw new AssertionError("Robber move and theft did not synchronize");
+        }
+        return next;
     }
 
     private static GameState sameGame(List<Probe> players) throws Exception {
