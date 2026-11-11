@@ -9,7 +9,10 @@ import javafx.stage.Stage;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Test to make sure all 4 work together */
+/**
+ * Opens four independently connected lobby windows on one computer for local multiplayer
+ * testing.
+ */
 public final class LocalLobbyTestApp extends Application {
     private final List<LobbyController> controllers = new ArrayList<>();
 

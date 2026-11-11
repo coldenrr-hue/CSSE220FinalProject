@@ -6,7 +6,10 @@ import java.util.List;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 
-/** Transport only: callbacks run on a background thread, never the JavaFX thread. */
+/**
+ * Connects to the host, sends commands, and dispatches incoming messages and disconnects on a
+ * background thread.
+ */
 public final class LobbyClient implements AutoCloseable {
     private final Socket socket = new Socket();
     private final DataOutputStream out;

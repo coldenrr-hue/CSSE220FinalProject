@@ -6,8 +6,12 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
+/**
+ * Reads and writes framed lists of UTF-8 strings over the LAN connection for both host and
+ * clients.
+ */
 final class Wire {
-    static final String LOBBY_VERSION = "4";
+    static final String LOBBY_VERSION = "5";
 
     private Wire() { }
 

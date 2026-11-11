@@ -3,6 +3,10 @@ package finalproject.game;
 import finalproject.network.GameStateCodec;
 import java.util.*;
 
+/**
+ * Runs standalone checks for bank and player trades, ports, build costs, placement, cities, and
+ * resource production.
+ */
 public final class TradingBuildingTest {
     private static final ResourceType WOOD = ResourceType.FOREST, BRICK = ResourceType.HILLS;
     private static final Board BOARD = BoardGenerator.generate(new Random(42));

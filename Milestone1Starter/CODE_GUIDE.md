@@ -80,9 +80,9 @@ Compile with `mvn clean test-compile`, then run these with assertions enabled an
 - `finalproject.game.SetupRulesTest`: complete setup games (test name retained).
 - `finalproject.game.TradingBuildingTest`: trades, costs, placement, cities and production.
 - `finalproject.network.LobbyIntegrationTest`: four real clients, authorization and synchronization.
+- `finalproject.game.SevenResolutionTest` covers discard counts, blocked actions, and robber theft.
+- `finalproject.game.DevelopmentRulesTest` covers the development deck and card effects.
+- `finalproject.game.MatchResultTest` covers scoring and final standings.
 
 `finalproject.game.view.DiceAnimationTest` and `TradingViewTest` also require the
 JavaFX controls/media modules and `src/main/resources` on the runtime classpath.
-
-This refactor does not add unfinished game rules. Robber movement, seven-roll
-discard/steal rules, development cards and end-game awards still need implementation.

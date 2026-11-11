@@ -42,15 +42,9 @@ import java.util.function.BiConsumer;
 import java.util.function.IntConsumer;
 
 /**
- * In-game screen, following the team sketch:
- *
- *   PLAYERS (left)   |  phase banner + whose turn  |  Full screen, Leave
- *                    |  setup order tracker         |  Table chat
- *                    |           BOARD              |  ACTIONS
- *                    |      YOUR CARDS (bottom)     |
- *
- * During setup the banner says SETUP PHASE, the tracker shows the snake order
- * (A B C D D C B A), and on your turn the legal corners / edges glow on the board.
+ * Displays the board, turn, player summaries, chat, and the local player's cards. It enables
+ * actions from the latest host snapshot and guides players through setup, mandatory discards,
+ * robber moves, and free road placements.
  */
 public final class GameScreen extends BorderPane {
 
@@ -240,6 +234,9 @@ public final class GameScreen extends BorderPane {
                     diceRevealed = true;
                     diceSummary.setText("Dice: " + state.dice().first() + " + " + state.dice().second()
                             + " = " + state.dice().total());
+                    if (latestState.seven().active()) {
+                        showRequiredAction(latestState, localPlayer, nameOf(latestState.currentPlayerId(), playerNames));
+                    }
                     updateButtons();
                 }
             });
@@ -387,7 +384,10 @@ public final class GameScreen extends BorderPane {
 
     private void showRequiredAction(GameState state, int playerId, String current) {
         DevelopmentState dev = state.development();
-        if (!state.seven().pendingDiscards().isEmpty()) {
+        if (state.seven().active() && !diceRevealed) {
+            instruction.setText("");
+            board.clearSpots();
+        } else if (!state.seven().pendingDiscards().isEmpty()) {
             int count = state.seven().discardCount(playerId);
             instruction.setText(count > 0 ? "Discard " + count + " resource cards."
                     : "Waiting for " + state.seven().pendingDiscards().size() + " player(s) to discard.");
@@ -739,9 +739,9 @@ public final class GameScreen extends BorderPane {
         boolean resolvingSeven = latestState != null && latestState.seven().active();
         boolean busy = resolvingSeven || (latestState != null && latestState.development().busy());
         boolean mustDiscard = resolvingSeven && latestState.seven().discardCount(localPlayer) > 0;
-        discardButton.setVisible(mustDiscard);
-        discardButton.setManaged(mustDiscard);
-        discardButton.setDisable(!diceRevealed || command == null);
+        discardButton.setVisible(mustDiscard && diceRevealed);
+        discardButton.setManaged(discardButton.isVisible());
+        discardButton.setDisable(command == null);
         rollButton.setDisable(!playing || rolled || busy || onRoll == null);
         buildButton.setDisable(!playing || !rolled || !diceRevealed || busy || onBuild == null);
         tradeButton.setDisable(!playing || !rolled || !diceRevealed || busy || onTrade == null);

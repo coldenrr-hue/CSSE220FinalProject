@@ -8,7 +8,10 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.IntSupplier;
 
-/** Host-authoritative four-seat lobby. Slot zero belongs to the host's client. */
+/**
+ * Runs the four-seat LAN lobby and owns the match state. It validates player commands, applies
+ * game rules, broadcasts snapshots and results, and sends each development hand privately.
+ */
 public final class LobbyServer implements AutoCloseable {
     public static final int DEFAULT_PORT = 22000;
     private final ServerSocket listener;
@@ -445,6 +448,7 @@ public final class LobbyServer implements AutoCloseable {
         workers.shutdownNow();
     }
 
+    /** Holds one connected player's seat, name, readiness, and socket output stream. */
     private static final class Peer {
         final int id;
         final String name;

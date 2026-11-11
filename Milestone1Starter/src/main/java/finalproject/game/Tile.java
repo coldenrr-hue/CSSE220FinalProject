@@ -2,7 +2,10 @@ package finalproject.game;
 
 import java.util.Objects;
 
-/** Axial coordinates identify a hex independently of its screen position. */
+/**
+ * A terrain hex with a stable ID, axial coordinates, and a production number. Its helpers
+ * identify adjacent hexes and high-probability tokens.
+ */
 public record Tile(int id, int q, int r, ResourceType resource, int number) {
     public Tile {
         Objects.requireNonNull(resource);

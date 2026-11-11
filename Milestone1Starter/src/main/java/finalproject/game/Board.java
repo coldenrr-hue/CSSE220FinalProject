@@ -4,7 +4,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Immutable board: identical data can be rendered on every laptop. */
+/**
+ * Stores the island's immutable terrain and number tokens so every client renders the same
+ * layout.
+ */
 public record Board(List<Tile> tiles) {
     public Board {
         tiles = List.copyOf(tiles);

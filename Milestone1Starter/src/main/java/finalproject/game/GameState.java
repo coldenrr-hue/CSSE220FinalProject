@@ -6,9 +6,9 @@ import java.util.Set;
 import java.util.HashSet;
 
 /**
- * Full public game snapshot. Revision prevents stale or duplicate turn commands.
- * Everything here is sent to every player, so secret information (like which
- * development cards someone holds) must NOT go in here. See DevelopmentHand.
+ * An immutable match snapshot shared by all clients. It contains the board, turn, pieces,
+ * resource hands, dice, active trade, robber, pending discards, and public development-card
+ * state. The revision identifies the state a command was based on.
  */
 public record GameState(Board board, List<Integer> turnOrder, int currentPlayerId,
                         GamePhase phase, int turnNumber, long revision, PlayerAssets assets, DiceResult dice, TradeOffer offer,

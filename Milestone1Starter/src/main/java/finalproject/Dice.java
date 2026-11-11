@@ -2,13 +2,11 @@ package finalproject;
 
 import java.util.Random;
 
+/** Rolls a six-sided die. The host rolls it twice to generate the turn's shared result. */
 public class Dice {
-    Random rand = new Random();
+    private final Random random = new Random();
 
     public int roll() {
-        return rand.nextInt(1, 7);
+        return random.nextInt(1, 7);
     }
-
-
-
 }

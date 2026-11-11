@@ -16,10 +16,14 @@ import java.util.Map;
  */
 public final class BoardGraph {
 
-    /** x, y are in hex units: 1 = distance from a tile's center to its corner. */
+    /**
+     * A building site with its adjoining tiles and neighboring vertices.
+     * Coordinates are in hex units, where one unit is the distance from a tile center to its corner.
+     */
     public record Vertex(int id, double x, double y, List<Integer> tileIds,
                          List<Integer> neighborIds, List<Integer> edgeIds) { }
 
+    /** A road site connecting two vertices and identifying the tiles it borders. */
     public record Edge(int id, int a, int b, List<Integer> tileIds) {
         public boolean touches(int vertexId) { return a == vertexId || b == vertexId; }
         public int other(int vertexId) { return vertexId == a ? b : a; }

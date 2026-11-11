@@ -2,7 +2,10 @@ package finalproject.game;
 
 import java.util.*;
 
-/** Pure host-side rules; failed actions never mutate hands or board pieces. */
+/**
+ * Validates setup placement, normal building, and trades, and calculates resource production.
+ * Changes return new asset snapshots so rejected actions leave the match state intact.
+ */
 public final class GameRules {
     private GameRules() { }
     // Setup: free settlement followed by an adjoining road.

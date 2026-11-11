@@ -7,6 +7,7 @@ import java.util.List;
 public record LobbyState(boolean started, List<Player> players) {
     public LobbyState { players = List.copyOf(players); }
 
+    /** A lobby seat with the player's display name and readiness. */
     public record Player(int id, String name, boolean ready) { }
 
     public static LobbyState fromMessage(List<String> fields) {

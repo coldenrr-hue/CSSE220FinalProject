@@ -9,6 +9,7 @@ import java.util.Map;
  * The roll revision lets players submit discards independently against the same roll.
  */
 public record SevenResolution(long rollRevision, Map<Integer, Integer> pendingDiscards) {
+    private static final int DISCARD_THRESHOLD = 7;
     public static final SevenResolution NONE = new SevenResolution(-1, Map.of());
 
     public SevenResolution {
@@ -22,7 +23,7 @@ public record SevenResolution(long rollRevision, Map<Integer, Integer> pendingDi
         Map<Integer, Integer> pending = new HashMap<>();
         for (int player : state.turnOrder()) {
             int handSize = state.assets().hand(player).size();
-            if (handSize >= 7) pending.put(player, handSize / 2);
+            if (handSize >= DISCARD_THRESHOLD) pending.put(player, handSize / 2);
         }
         return new SevenResolution(state.revision() + 1, pending);
     }
@@ -41,7 +42,10 @@ public record SevenResolution(long rollRevision, Map<Integer, Integer> pendingDi
 
     public GameState discard(GameState state, int playerId, List<ResourceType> cards) {
         int required = discardCount(playerId);
-        if (required == 0 || cards.size() != required) {
+        if (required == 0) {
+            throw new IllegalArgumentException("You have no cards to discard for this roll.");
+        }
+        if (cards.size() != required) {
             throw new IllegalArgumentException("Discard exactly " + required + " resource cards.");
         }
         PlayerAssets assets = GameRules.exchange(state.assets(), playerId, cards, List.of());

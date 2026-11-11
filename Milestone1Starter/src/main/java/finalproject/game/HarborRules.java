@@ -8,6 +8,10 @@ public final class HarborRules {
     private static Board cachedBoard;
     private static List<Harbor> cachedHarbors;
 
+    /**
+     * A coastal edge and its trading specialty. A desert specialty represents a generic 3-for-1
+     * harbor.
+     */
     public record Harbor(int a, int b, ResourceType resource) {
         public String label() { return resource == ResourceType.DESERT ? "3:1" : "2:1"; }
     }

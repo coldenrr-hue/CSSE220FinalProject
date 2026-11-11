@@ -36,10 +36,11 @@ remain visible. Resource-card hands are currently public in the shared prototype
 
 ## Remaining work
 
-Setup, shared rolls, resource production, normal building and trading work.
-Robber movement, discards/stealing on a seven, development cards, Longest Road,
-Largest Army and victory conditions remain to be implemented. A seven currently
-produces no resources.
+Longest Road still needs to be implemented. On a seven, the bank produces no
+resources. Each player with seven or more resource cards chooses half to discard
+(rounded down). Then the roller moves the robber and steals a random resource
+card from an eligible opponent if one is available.
+
 Guest disconnection cancels the match and returns players to an unready lobby.
 
 

@@ -46,11 +46,11 @@ switch without leaving a match.
 
 ## Scope of this progress build
 
-This demonstrates actual setup placement and synchronized dice. Normal-play
-building, dice-based resource production, robber movement/discards on seven,
-trading, cities, development cards, and winning are still unfinished. Their
-unconnected action buttons remain disabled. The robber currently stays on the
-desert; it is decorative. Starting resources from the second settlement work.
+Play through setup, then roll, trade, and build. On a roll of seven, players with
+at least seven resource cards choose half their cards to discard, rounded down.
+After all discards, the roller selects a new tile and steals one random card if
+an eligible opponent borders that tile. Knights can also move the robber.
+Development cards, Largest Army, and winning at ten points are supported.
 
 ## Validation
 
@@ -74,6 +74,6 @@ rolls, and verifies disconnect/restart behavior.
 - StarterApp still launches the LAN app; George's separate starter screen was
   adapted into `game/view/DiceRollAnimation` rather than replacing the game.
 - Andrew's GameState/PlayerAssets and placement commands remain authoritative on the host.
-- `GAME_STATE` protocol version 3 includes pieces, hands, and current-turn dice.
+- `GAME_STATE` protocol version 6 includes the current roll's pending discards.
 - Maven adds `javafx-media`, retaining the original artifact name and both launchers.
 - Andrew's per-user `.idea/workspace.xml` is excluded from the integration.

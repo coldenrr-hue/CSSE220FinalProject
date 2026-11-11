@@ -6,10 +6,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Final standings. Private victory point cards contribute only their points. */
+/**
+ * Determines whether the active player has reached ten points, then captures the winner and
+ * final standings. Hidden victory-point cards contribute to the final score.
+ */
 public record MatchResult(long revision, int winnerId, int turns, List<PlayerStats> players) {
     public static final int WINNING_POINTS = 10;
 
+    /** One player's final score, development-card activity, and counts of placed pieces. */
     public record PlayerStats(int id, int points, int cardsPlayed, int knights,
                               int settlements, int cities, int roads) { }
 

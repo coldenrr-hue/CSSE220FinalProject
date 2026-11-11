@@ -5,7 +5,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
-/** Run once on the host. Clients receive the resulting tiles, never reroll them. */
+/**
+ * Builds a randomized base-game island with the standard terrain and token counts. It keeps 6
+ * and 8 tokens apart and gives the host a board to share with clients.
+ */
 public final class BoardGenerator {
     private BoardGenerator() { }
 

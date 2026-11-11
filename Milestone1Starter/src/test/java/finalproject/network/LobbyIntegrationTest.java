@@ -5,7 +5,10 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Predicate;
 
-/** Standalone socket integration test: run with java -ea ...LobbyIntegrationTest. */
+/**
+ * Connects four real clients to a local host and verifies setup, dice, robber theft, trading,
+ * authorization, and match restart over the wire.
+ */
 public final class LobbyIntegrationTest {
     public static void main(String[] args) throws Exception {
         List<Probe> opened = new ArrayList<>();
@@ -195,7 +198,7 @@ public final class LobbyIntegrationTest {
         active.client.send("END_TURN", revision);
         active.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("Resolve the seven"));
         inactive.client.send("DISCARD", "FOREST", Long.toString(game.seven().rollRevision()));
-        inactive.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("Discard exactly 0"));
+        inactive.await(f -> f.get(0).equals("ERROR") && f.get(1).contains("no cards to discard"));
 
         int tile = -1;
         int victim = -1;
@@ -247,6 +250,7 @@ public final class LobbyIntegrationTest {
         opened.add(p);
         return p;
     }
+    /** Collects messages for one test client and waits for matching events with a timeout. */
     private static final class Probe {
         final BlockingQueue<List<String>> events = new LinkedBlockingQueue<>();
         LobbyClient client;
