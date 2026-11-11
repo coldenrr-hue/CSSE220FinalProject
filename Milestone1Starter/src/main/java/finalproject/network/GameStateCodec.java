@@ -8,7 +8,7 @@ import java.util.Map;
 
 /**
  * Explicit, versioned fields using the existing Wire framing.
- * Version 5 adds the robber and public development card info to the game snapshot.
+ * Version 6 adds the roll revision and pending discard counts for a rolled seven.
  *   settlements "vertex:player,vertex:player"   roads "edge:player,..."
  *   pending settlement "-1" or a vertex ID       hands "player:FOREST.FIELDS;player:..."
  *   robber tile, dev card counts "player:n,...", knights "player:n,...", largest army,
@@ -21,7 +21,7 @@ public final class GameStateCodec {
     private GameStateCodec() { }
 
     public static String[] encode(GameState state) {
-        List<String> fields = new ArrayList<>(List.of("GAME_STATE", "5", Long.toString(state.revision()),
+        List<String> fields = new ArrayList<>(List.of("GAME_STATE", "6", Long.toString(state.revision()),
                 state.phase().name(), Integer.toString(state.currentPlayerId()), Integer.toString(state.turnNumber())));
         for (int id : state.turnOrder()) fields.add(Integer.toString(id));
         fields.add(Integer.toString(state.board().tiles().size()));
@@ -48,11 +48,13 @@ public final class GameStateCodec {
         fields.add(Boolean.toString(dev.playedThisTurn()));
         fields.add(Boolean.toString(dev.movingRobber()));
         fields.add(Integer.toString(dev.freeRoads()));
+        fields.add(Long.toString(state.seven().rollRevision()));
+        fields.add(encodeOwners(state.seven().pendingDiscards()));
         return fields.toArray(String[]::new);
     }
 
     public static GameState decode(List<String> fields) {
-        if (fields.size() != 122 || !fields.get(0).equals("GAME_STATE") || !fields.get(1).equals("5")
+        if (fields.size() != 124 || !fields.get(0).equals("GAME_STATE") || !fields.get(1).equals("6")
                 || !fields.get(10).equals("19")) throw new IllegalArgumentException("Invalid game snapshot");
         List<Integer> order = new ArrayList<>();
         for (int i = 6; i < 10; i++) order.add(Integer.parseInt(fields.get(i)));
@@ -72,9 +74,10 @@ public final class GameStateCodec {
         DevelopmentState dev = new DevelopmentState(decodeOwners(fields.get(115)), decodeOwners(fields.get(116)),
                 Integer.parseInt(fields.get(117)), Integer.parseInt(fields.get(118)), Boolean.parseBoolean(fields.get(119)),
                 Boolean.parseBoolean(fields.get(120)), Integer.parseInt(fields.get(121)));
+        SevenResolution seven = new SevenResolution(Long.parseLong(fields.get(122)), decodeOwners(fields.get(123)));
         return new GameState(new Board(tiles), order, Integer.parseInt(fields.get(4)),
                 GamePhase.valueOf(fields.get(3)), Integer.parseInt(fields.get(5)), Long.parseLong(fields.get(2)), assets,
-                new DiceResult(Integer.parseInt(fields.get(110)), Integer.parseInt(fields.get(111))), offer, Integer.parseInt(fields.get(114)), dev);
+                new DiceResult(Integer.parseInt(fields.get(110)), Integer.parseInt(fields.get(111))), offer, Integer.parseInt(fields.get(114)), dev, seven);
     }
 
     public static String encodeCards(List<ResourceType> cards) {

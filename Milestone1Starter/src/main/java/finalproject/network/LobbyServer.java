@@ -26,6 +26,7 @@ public final class LobbyServer implements AutoCloseable {
     private DiceResult dice = DiceResult.NONE;
     private TradeOffer offer;
     private int robberTile;
+    private SevenResolution seven = SevenResolution.NONE;
     private DevelopmentState development = DevelopmentState.START;
     // Secret: the deck order and every player's development cards stay on the host.
     // Each player is only ever sent their own hand (see broadcastGame).
@@ -151,6 +152,8 @@ public final class LobbyServer implements AutoCloseable {
                 Wire.send(peer.out, "ERROR", "During setup your turn ends when you place your road.");
             } else if (!dice.rolled()) {
                 Wire.send(peer.out, "ERROR", "Roll the dice before ending your turn.");
+            } else if (seven.active()) {
+                Wire.send(peer.out, "ERROR", "Resolve the seven before ending your turn.");
             } else if (development.busy()) {
                 Wire.send(peer.out, "ERROR", development.movingRobber()
                         ? "Move the robber before ending your turn." : "Place your free roads before ending your turn.");
@@ -179,20 +182,41 @@ public final class LobbyServer implements AutoCloseable {
                 Wire.send(peer.out, "ERROR", "Finish your development card before rolling.");
             } else {
                 dice = new DiceResult(die.roll(), die.roll());
-                assets = GameRules.collectDiceResources(currentGame());
+                if (dice.total() == 7) {
+                    seven = SevenResolution.start(currentGame());
+                } else {
+                    assets = GameRules.collectDiceResources(currentGame());
+                }
                 gameRevision++;
                 broadcastGame();
             }
+        } else if (fields[0].equals("DISCARD")) {
+            discard(peer, fields);
         } else if (fields[0].equals("BUY_DEV_CARD") || fields[0].equals("PLAY_DEV_CARD")
                 || fields[0].equals("MOVE_ROBBER")) {
             developmentCommand(peer, fields);
         }
     }
 
+    private void discard(Peer peer, String[] fields) throws IOException {
+        try {
+            if (!seven.active() || fields.length != 3 || !fields[2].equals(Long.toString(seven.rollRevision()))) {
+                throw new IllegalArgumentException("That discard is not for the current roll.");
+            }
+            GameState next = seven.discard(currentGame(), peer.id, GameStateCodec.decodeCards(fields[1]));
+            assets = next.assets();
+            seven = next.seven();
+            gameRevision = next.revision();
+            broadcastGame();
+        } catch (IllegalArgumentException e) {
+            Wire.send(peer.out, "ERROR", e.getMessage());
+        }
+    }
+
     /**
      * BUY_DEV_CARD <revision>
      * PLAY_DEV_CARD <card> <revision> [resource] [resource]   (Year of Plenty: 2, Monopoly: 1)
-     * MOVE_ROBBER <tile> <victim or -1> <revision>            (after a Knight)
+     * MOVE_ROBBER <tile> <victim or -1> <revision>            (after a Knight or seven)
      */
     private void developmentCommand(Peer peer, String[] fields) throws IOException {
         int revisionField = switch (fields[0]) {
@@ -253,6 +277,7 @@ public final class LobbyServer implements AutoCloseable {
         assets = next.assets();
         offer = null;
         robberTile = next.robberTile();
+        seven = next.seven();
         development = next.development();
         devHands.put(playerId, result.hand());
         gameRevision++;
@@ -341,7 +366,7 @@ public final class LobbyServer implements AutoCloseable {
 
     private GameState currentGame() {
         return new GameState(board, turns.order(), turns.currentPlayerId(),
-                turns.phase(), turns.turnNumber(), gameRevision, assets, dice, offer, robberTile, development);
+                turns.phase(), turns.turnNumber(), gameRevision, assets, dice, offer, robberTile, development, seven);
     }
 
     /**
@@ -395,6 +420,7 @@ public final class LobbyServer implements AutoCloseable {
         offer = null;
         dice = DiceResult.NONE;
         development = DevelopmentState.START;
+        seven = SevenResolution.NONE;
         devDeck.clear();
         devHands.clear();
         cardsPlayed.clear();

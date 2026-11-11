@@ -115,6 +115,8 @@ public final class GameRules {
     public static void requireTurn(GameState state, int player) {
         if (state.phase() != GamePhase.PLAYING || state.currentPlayerId() != player || !state.dice().rolled())
             throw new IllegalArgumentException("Wait for your turn and roll before trading or building.");
+        if (state.seven().active())
+            throw new IllegalArgumentException("Resolve the seven before trading or building.");
         if (state.development().busy())
             throw new IllegalArgumentException("Finish your development card before trading or building.");
     }
@@ -156,6 +158,7 @@ public final class GameRules {
         return state.phase() == GamePhase.PLAYING
                 && player == state.currentPlayerId()
                 && state.dice().rolled()
+                && !state.seven().active()
                 && !state.development().busy()
                 && build.remainingPieces(state.assets(), player) > 0
                 && hasResources(state.assets(), player, build.cost());

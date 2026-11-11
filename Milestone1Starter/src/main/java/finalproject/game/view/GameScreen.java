@@ -9,6 +9,7 @@ import finalproject.game.GameState;
 import finalproject.game.PlayerAssets;
 import finalproject.game.ResourceType;
 import finalproject.game.GameRules;
+import finalproject.network.GameStateCodec;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -92,6 +93,7 @@ public final class GameScreen extends BorderPane {
     private final Button fullscreenButton = button("Full screen", DARK_BUTTON);
     private final Button leaveButton = button("Leave table", DARK_BUTTON);
     private final Label actionsNote = label("", 12, TEXT, false);
+    private final Button discardButton = button("Choose cards to discard", GOLD_BUTTON);
     private final Button rollButton = button("Roll dice", GOLD_BUTTON);
     private final Button cancelBuild = button("Cancel placement", DARK_BUTTON);
     private final Button buildButton = button("Build", GOLD_BUTTON);
@@ -121,6 +123,7 @@ public final class GameScreen extends BorderPane {
 
     public void onCommand(java.util.function.Consumer<String[]> action) {
         command = action;
+        discardButton.setOnAction(event -> chooseDiscards());
         onBuild(this::chooseBuild);
         onTrade(() -> TradeDialog.show(latestState, localPlayer, playerNames, command));
     }
@@ -261,7 +264,7 @@ public final class GameScreen extends BorderPane {
             turnBanner.setText(myTurn ? "Your Turn" : current + "'s Turn");
             setupTracker.getChildren().clear();
             actionsNote.setText("Development cards left: " + state.development().deckSize());
-            showDevelopmentSpots(state, playerId, current);
+            showRequiredAction(state, playerId, current);
         }
         // The Actions panel only exists during normal play; during setup the chat gets the space.
         actionsPanel.setVisible(!setup);
@@ -313,7 +316,7 @@ public final class GameScreen extends BorderPane {
     public void onPlayDevelopmentCard(BiConsumer<DevelopmentCard, List<ResourceType>> action) {
         onPlayDevelopmentCard = action;
     }
-    /** After a Knight: (tile ID, player to steal from or -1). */
+    /** Sends the selected tile and victim after a Knight or a rolled seven. */
     public void onMoveRobber(BiConsumer<Integer, Integer> action) { onMoveRobber = action; }
 
     /** This player's own development cards, sent privately by the host. */
@@ -382,11 +385,15 @@ public final class GameScreen extends BorderPane {
     // Development cards
     // =====================================================================
 
-    /** After a Knight the robber tiles glow; after Road Building the free road spots glow. */
-    private void showDevelopmentSpots(GameState state, int playerId, String current) {
+    private void showRequiredAction(GameState state, int playerId, String current) {
         DevelopmentState dev = state.development();
-        if (dev.movingRobber()) {
-            instruction.setText(myTurn ? "Knight: click a glowing tile to move the robber." : current + " is moving the robber.");
+        if (!state.seven().pendingDiscards().isEmpty()) {
+            int count = state.seven().discardCount(playerId);
+            instruction.setText(count > 0 ? "Discard " + count + " resource cards."
+                    : "Waiting for " + state.seven().pendingDiscards().size() + " player(s) to discard.");
+            board.clearSpots();
+        } else if (dev.movingRobber() || state.seven().readyToMoveRobber()) {
+            instruction.setText(myTurn ? "Click a glowing tile to move the robber." : current + " is moving the robber.");
             if (myTurn) board.showTileSpots(DevelopmentRules.robberTiles(state), this::moveRobberTo);
             else board.clearSpots();
         } else if (dev.freeRoads() > 0) {
@@ -417,12 +424,28 @@ public final class GameScreen extends BorderPane {
             List<String> choices = new ArrayList<>();
             victims.forEach(id -> choices.add(nameOf(id, playerNames)));
             ChoiceDialog<String> dialog = new ChoiceDialog<>(choices.get(0), choices);
-            prepare(dialog, "Knight", "Steal one random card from:");
+            prepare(dialog, "Move the robber", "Choose a player to steal one random card from.");
             Optional<String> picked = dialog.showAndWait();
             if (picked.isEmpty()) return;                 // cancelled: tiles stay clickable
             victim = victims.get(choices.indexOf(picked.get()));
         }
         onMoveRobber.accept(tileId, victim);
+    }
+
+    private void chooseDiscards() {
+        GameState snapshot = latestState;
+        if (snapshot == null || command == null) return;
+        int required = snapshot.seven().discardCount(localPlayer);
+        if (required == 0) return;
+
+        List<ResourceType> hand = snapshot.assets().hand(localPlayer);
+        List<ResourceType> chosen = DiscardDialog.show(getScene().getWindow(), hand, required);
+        if (chosen != null && latestState != null
+                && latestState.seven().rollRevision() == snapshot.seven().rollRevision()
+                && latestState.seven().discardCount(localPlayer) == required) {
+            command.accept(new String[]{"DISCARD", GameStateCodec.encodeCards(chosen),
+                    Long.toString(snapshot.seven().rollRevision())});
+        }
     }
 
     /** Rebuilds this player's development cards along the bottom of the screen. */
@@ -597,10 +620,10 @@ public final class GameScreen extends BorderPane {
         VBox.setVgrow(chatHolder, Priority.ALWAYS);
 
         VBox actions = new VBox(8, label("ACTIONS", 13, TEXT, true), actionsNote, diceSummary,
-                rollButton, buildButton, tradeButton, tradeOfferPanel, devCardButton, endTurnButton);
+                rollButton, discardButton, buildButton, tradeButton, tradeOfferPanel, devCardButton, endTurnButton);
         actions.setStyle(PANEL_STYLE);
         actionsPanel = actions;
-        for (Button b : List.of(rollButton, buildButton, tradeButton, devCardButton, endTurnButton)) {
+        for (Button b : List.of(rollButton, discardButton, buildButton, tradeButton, devCardButton, endTurnButton)) {
             b.setMaxWidth(Double.MAX_VALUE);
             b.setPrefHeight(36);
         }
@@ -713,13 +736,20 @@ public final class GameScreen extends BorderPane {
 
     private void updateButtons() {
         boolean playing = myTurn && !setup;
-        boolean busy = latestState != null && latestState.development().busy();
+        boolean resolvingSeven = latestState != null && latestState.seven().active();
+        boolean busy = resolvingSeven || (latestState != null && latestState.development().busy());
+        boolean mustDiscard = resolvingSeven && latestState.seven().discardCount(localPlayer) > 0;
+        discardButton.setVisible(mustDiscard);
+        discardButton.setManaged(mustDiscard);
+        discardButton.setDisable(!diceRevealed || command == null);
         rollButton.setDisable(!playing || rolled || busy || onRoll == null);
         buildButton.setDisable(!playing || !rolled || !diceRevealed || busy || onBuild == null);
         tradeButton.setDisable(!playing || !rolled || !diceRevealed || busy || onTrade == null);
         endTurnButton.setDisable(!playing || !rolled || !diceRevealed || busy || onEndTurn == null);
         for (Button b : List.of(buildButton, tradeButton)) {
-            String reason = busy ? "Finish your development card first" : "Roll the dice first";
+            String reason = "Roll the dice first";
+            if (resolvingSeven) reason = "Resolve the seven first";
+            else if (busy) reason = "Finish your development card first";
             b.setTooltip(b.isDisabled() && playing ? new Tooltip(reason) : null);
         }
         String buyProblem = latestState == null ? "Waiting for the game." : DevelopmentRules.buyProblem(latestState, localPlayer);

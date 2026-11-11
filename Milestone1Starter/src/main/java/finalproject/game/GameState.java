@@ -12,13 +12,14 @@ import java.util.HashSet;
  */
 public record GameState(Board board, List<Integer> turnOrder, int currentPlayerId,
                         GamePhase phase, int turnNumber, long revision, PlayerAssets assets, DiceResult dice, TradeOffer offer,
-                        int robberTile, DevelopmentState development) {
+                        int robberTile, DevelopmentState development, SevenResolution seven) {
     public GameState {
         Objects.requireNonNull(board);
         Objects.requireNonNull(phase);
         Objects.requireNonNull(assets);
         Objects.requireNonNull(dice);
         Objects.requireNonNull(development);
+        Objects.requireNonNull(seven);
         turnOrder = List.copyOf(turnOrder);
         if (turnOrder.size() != 4 || !new HashSet<>(turnOrder).equals(Set.of(0, 1, 2, 3))
                 || !turnOrder.contains(currentPlayerId) || turnNumber < 0 || revision < 0) {
@@ -27,6 +28,13 @@ public record GameState(Board board, List<Integer> turnOrder, int currentPlayerI
         if (board.tiles().stream().noneMatch(t -> t.id() == robberTile)) {
             throw new IllegalArgumentException("The robber must be on a tile");
         }
+    }
+
+    public GameState(Board board, List<Integer> turnOrder, int currentPlayerId,
+                     GamePhase phase, int turnNumber, long revision, PlayerAssets assets, DiceResult dice,
+                     TradeOffer offer, int robberTile, DevelopmentState development) {
+        this(board, turnOrder, currentPlayerId, phase, turnNumber, revision, assets, dice, offer,
+                robberTile, development, SevenResolution.NONE);
     }
 
     /** Robber on the desert, no development cards bought yet. */
@@ -65,8 +73,13 @@ public record GameState(Board board, List<Integer> turnOrder, int currentPlayerI
 
     /** Same turn, new assets, robber position, and development state, next revision. */
     public GameState with(PlayerAssets newAssets, int newRobberTile, DevelopmentState newDevelopment) {
+        return with(newAssets, newRobberTile, newDevelopment, seven);
+    }
+
+    GameState with(PlayerAssets newAssets, int newRobberTile, DevelopmentState newDevelopment,
+                   SevenResolution newSeven) {
         return new GameState(board, turnOrder, currentPlayerId, phase, turnNumber, revision + 1, newAssets, dice, offer,
-                newRobberTile, newDevelopment);
+                newRobberTile, newDevelopment, newSeven);
     }
 
     /** Same assets, new turn info (use after TurnManager.advance()), next revision. */

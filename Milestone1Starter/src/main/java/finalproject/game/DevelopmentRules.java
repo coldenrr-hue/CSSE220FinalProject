@@ -53,6 +53,7 @@ public final class DevelopmentRules {
         if (state.phase() != GamePhase.PLAYING) return "Development cards can be bought after setup.";
         if (state.currentPlayerId() != playerId) return "It is not your turn.";
         if (!state.dice().rolled()) return "Roll the dice before buying.";
+        if (state.seven().active()) return "Resolve the seven first.";
         if (state.development().busy()) return "Finish your current development card first.";
         if (state.development().deckSize() == 0) return "There are no development cards left.";
         if (!GameRules.hasResources(state.assets(), playerId, COST)) return "A development card costs 1 ore, 1 wool and 1 grain.";
@@ -75,6 +76,7 @@ public final class DevelopmentRules {
         if (state.phase() != GamePhase.PLAYING) return "Development cards can be played after setup.";
         if (state.currentPlayerId() != playerId) return "It is not your turn.";
         if (card == DevelopmentCard.VICTORY_POINT) return "Victory Point cards stay hidden and count automatically.";
+        if (state.seven().active()) return "Resolve the seven first.";
         if (state.development().busy()) return "Finish your current development card first.";
         if (state.development().playedThisTurn()) return "You can only play one development card per turn.";
         if (hand.readyCount(card) == 0) {
@@ -163,7 +165,10 @@ public final class DevelopmentRules {
     /** victim is -1 when nobody can be stolen from. */
     public static String robberProblem(GameState state, int playerId, int tileId, int victim) {
         if (state.currentPlayerId() != playerId) return "It is not your turn.";
-        if (!state.development().movingRobber()) return "You don't need to move the robber right now.";
+        if (state.seven().active() && !state.seven().readyToMoveRobber()) return "Wait for all discards.";
+        if (!state.development().movingRobber() && !state.seven().readyToMoveRobber()) {
+            return "You don't need to move the robber right now.";
+        }
         if (!robberTiles(state).contains(tileId)) return "The robber has to move to a different tile.";
         List<Integer> options = victims(state, playerId, tileId);
         if (options.isEmpty() ? victim != -1 : !options.contains(victim)) return "You can't steal from that player.";
@@ -179,7 +184,7 @@ public final class DevelopmentRules {
             ResourceType stolen = theirs.remove(random.nextInt(theirs.size()));
             assets = assets.replaceHand(victim, theirs).withCards(playerId, List.of(stolen));
         }
-        return state.with(assets, tileId, state.development().withRobberMoved());
+        return state.with(assets, tileId, state.development().withRobberMoved(), SevenResolution.NONE);
     }
 
     // =====================================================================
