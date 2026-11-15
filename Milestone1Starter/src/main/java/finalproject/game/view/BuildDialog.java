@@ -14,15 +14,10 @@ public final class BuildDialog {
     private static final String[] COLORS = {"red", "blue", "yellow", "green"};
     private BuildDialog() { }
 
-    public static Dialog<Void> show(GameState state, int player, Consumer<GameRules.Build> select) {
-        Dialog<Void> dialog = new Dialog<>();
-        dialog.setTitle("Build & upgrade");
-        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
-        dialog.getDialogPane().getStylesheets().add(Objects.requireNonNull(BuildDialog.class.getResource("/styles/trading.css")).toExternalForm());
-        dialog.getDialogPane().getStyleClass().add("trade-dialog");
+    static ScrollPane create(GameState state, int player, Consumer<GameRules.Build> select) {
         HBox choices = new HBox(12);
         for (GameRules.Build kind : GameRules.Build.values()) {
-            choices.getChildren().add(buildOption(state, player, kind, dialog, select));
+            choices.getChildren().add(buildOption(state, player, kind, select));
         }
         VBox body = new VBox(14, text("Build your island", "trade-title"),
                 text("Choose a piece, then select a highlighted location on the board.", "trade-subtitle"), choices,
@@ -30,12 +25,11 @@ public final class BuildDialog {
         body.getStyleClass().add("trade-body");
         ScrollPane scroll = new ScrollPane(body); scroll.setFitToWidth(true);
         scroll.setPrefViewportWidth(748); scroll.setPrefViewportHeight(690);
-        dialog.getDialogPane().setContent(scroll); dialog.setResizable(true);
-        dialog.show(); return dialog;
+        return scroll;
     }
 
     private static VBox buildOption(GameState state, int player, GameRules.Build kind,
-                                    Dialog<Void> dialog, Consumer<GameRules.Build> select) {
+                                    Consumer<GameRules.Build> select) {
         boolean city = kind == GameRules.Build.CITY;
         String title = switch (kind) { case ROAD -> "Road"; case SETTLEMENT -> "Settlement"; case CITY -> "City upgrade"; };
         Node picture = piece(kind.name().toLowerCase(Locale.ROOT), player, 88);
@@ -78,7 +72,7 @@ public final class BuildDialog {
         Button action = new Button(city ? "Upgrade settlement" : "Place " + title.toLowerCase(Locale.ROOT));
         action.setId("build-" + kind.name()); action.getStyleClass().add("trade-primary");
         action.setMaxWidth(Double.MAX_VALUE); action.setDisable(spots.isEmpty());
-        action.setOnAction(e -> { dialog.close(); select.accept(kind); });
+        action.setOnAction(e -> select.accept(kind));
         VBox card = new VBox(10, art, text(title, "build-title"), benefit,
                 text("RESOURCE COST", "trade-section-title"), costs,
                 text(remaining + " pieces remaining", "trade-hint"), availability, action);

@@ -18,13 +18,8 @@ import java.util.function.Consumer;
 /** Builds a proposal locally; only the host can exchange the selected cards. */
 public final class TradeDialog {
     private TradeDialog() { }
-    public static Dialog<Void> show(GameState state, int player, Map<Integer, String> names, Consumer<String[]> send) {
-        Dialog<Void> dialog = new Dialog<>();
-        dialog.setTitle("Trade resources");
-        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
-        dialog.getDialogPane().getStylesheets().add(Objects.requireNonNull(TradeDialog.class.getResource("/styles/trading.css")).toExternalForm());
-        dialog.getDialogPane().getStyleClass().add("trade-dialog");
-        dialog.setResizable(true);
+    static ScrollPane create(GameState state, int player, Map<Integer, String> names,
+                             Consumer<String[]> send, Runnable close) {
         List<Integer> seats = state.turnOrder().stream().filter(id -> id != player).toList();
         ToggleGroup partners = new ToggleGroup();
         HBox partnerBar = new HBox(8);
@@ -93,7 +88,7 @@ public final class TradeDialog {
                     GameRules.validateOffer(state, offer);
                     send.accept(new String[]{"TRADE_OFFER", "" + offer.to(), GameStateCodec.encodeCards(offered), GameStateCodec.encodeCards(requested), revision});
                 }
-                dialog.close();
+                close.run();
             } catch (IllegalArgumentException ex) { error.setText(ex.getMessage()); error.setVisible(true); error.setManaged(true); }
         });
         Label title = text("The trading post", "trade-title");
@@ -108,9 +103,7 @@ public final class TradeDialog {
         ScrollPane scroll = new ScrollPane(body);
         scroll.setFitToWidth(true); scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setPrefViewportWidth(620); scroll.setPrefViewportHeight(650);
-        dialog.getDialogPane().setContent(scroll);
-        dialog.show();
-        return dialog;
+        return scroll;
     }
     private static List<ResourceType> selected(Map<ResourceType, Spinner<Integer>> values) {
         List<ResourceType> cards = new ArrayList<>();

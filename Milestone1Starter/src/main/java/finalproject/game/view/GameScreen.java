@@ -19,6 +19,7 @@ import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.GridPane;
 import javafx.scene.image.Image;
@@ -46,7 +47,7 @@ import java.util.function.IntConsumer;
  * actions from the latest host snapshot and guides players through setup, mandatory discards,
  * robber moves, and free road placements.
  */
-public final class GameScreen extends BorderPane {
+public final class GameScreen extends StackPane {
 
     private static final String[] SEAT_COLORS = HexBoardView.SEAT_COLORS;
 
@@ -68,6 +69,8 @@ public final class GameScreen extends BorderPane {
                     + "-fx-background-radius: 8; -fx-cursor: hand;";
 
     private final HexBoardView board = new HexBoardView();
+    private final BorderPane gameLayout = new BorderPane();
+    private StackPane shopOverlay;
     private final DiceRollAnimation diceAnimation = new DiceRollAnimation();
     private final Label diceSummary = label("Roll to begin your turn.", 14, GOLD, true);
     private boolean rolled;
@@ -119,13 +122,15 @@ public final class GameScreen extends BorderPane {
         command = action;
         discardButton.setOnAction(event -> chooseDiscards());
         onBuild(this::chooseBuild);
-        onTrade(() -> TradeDialog.show(latestState, localPlayer, playerNames, command));
+        onTrade(() -> showShop(TradeDialog.create(latestState, localPlayer, playerNames, command, this::closeShop),
+                tradeButton));
     }
 
     private void chooseBuild() {
         if (latestState == null) return;
         GameState snapshot = latestState;
-        BuildDialog.show(snapshot, localPlayer, kind -> {
+        ScrollPane menu = BuildDialog.create(snapshot, localPlayer, kind -> {
+            closeShop();
             if (latestState == null || latestState.revision() != snapshot.revision()) {
                 showStatus("The board changed. Open Build again to choose a piece.");
                 return;
@@ -144,6 +149,41 @@ public final class GameScreen extends BorderPane {
             else if (city) board.showCitySpots(spots, place);
             else board.showSettlementSpots(spots, place);
         });
+        showShop(menu, buildButton);
+    }
+
+    private void showShop(ScrollPane menu, Button opener) {
+        Button close = button("Close", DARK_BUTTON);
+        close.setCancelButton(true);
+        close.setOnAction(event -> {
+            closeShop();
+            opener.requestFocus();
+        });
+        HBox footer = new HBox(close);
+        footer.setAlignment(Pos.CENTER_RIGHT);
+        footer.setPadding(new Insets(8));
+        BorderPane panel = new BorderPane(menu);
+        panel.setBottom(footer);
+        panel.getStyleClass().add("trade-dialog");
+        panel.getStylesheets().add(java.util.Objects.requireNonNull(
+                getClass().getResource("/styles/trading.css")).toExternalForm());
+        panel.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+        panel.setMinSize(0, 0);
+        menu.setMinSize(0, 0);
+
+        shopOverlay = new StackPane(panel);
+        shopOverlay.setPadding(new Insets(18));
+        shopOverlay.setStyle("-fx-background-color: rgba(0, 0, 0, 0.65);");
+        gameLayout.setDisable(true);
+        getChildren().add(shopOverlay);
+        close.requestFocus();
+    }
+
+    private void closeShop() {
+        if (shopOverlay == null) return;
+        gameLayout.setDisable(false);
+        getChildren().remove(shopOverlay);
+        shopOverlay = null;
     }
 
     private void renderOffer(GameState state) {
@@ -171,12 +211,16 @@ public final class GameScreen extends BorderPane {
     public GameScreen() {
         diceSummary.setId("dice-summary");
         setStyle("-fx-background-color: " + BG + ";");
-        setPadding(new Insets(18));
+        gameLayout.setPadding(new Insets(18));
 
-        setLeft(buildPlayers());
-        setCenter(new StackPane(buildCenter(), diceAnimation));
-        setRight(buildRight());
-        setBottom(buildHand());
+        gameLayout.setLeft(buildPlayers());
+        gameLayout.setCenter(new StackPane(buildCenter(), diceAnimation));
+        gameLayout.setRight(buildRight());
+        gameLayout.setBottom(buildHand());
+        getChildren().add(gameLayout);
+        sceneProperty().addListener((observable, previous, scene) -> {
+            if (scene == null) closeShop();
+        });
 
         cancelBuild.setVisible(false); cancelBuild.setManaged(false);
         cancelBuild.setOnAction(e -> {
@@ -275,6 +319,7 @@ public final class GameScreen extends BorderPane {
     }
 
     public void reset() {
+        closeShop();
         cancelBuild.setVisible(false); cancelBuild.setManaged(false);
         latestState = null;
         tradeOfferPanel.getChildren().clear();
